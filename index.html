@@ -2004,7 +2004,7 @@ async function deleteMatch(id){
 </script>
 
 <script id="twofc-secure-otp-reset">
-window.TWOFcOtpApiBase = window.TWOFcOtpApiBase || 'https://YOUR-OTP-BACKEND.example.com';
+window.TWOFcOtpApiBase = window.TWOFcOtpApiBase || 'https://twofc-esports-backend.onrender.com';
 let twofcOtpEmailValue='', twofcResetToken='', twofcOtpTimerHandle=null;
 function twofcOtpMsg(msg,ok=false){const el=document.getElementById('twofcOtpMessage');if(el){el.textContent=msg;el.className='text-xs text-center min-h-[18px] '+(ok?'text-emerald-300':'text-rose-300')}}
 function twofcOpenOtpReset(){const m=document.getElementById('twofcOtpResetModal');if(!m)return;m.classList.remove('hidden');m.classList.add('flex');twofcOtpMsg('');document.getElementById('twofcOtpStepEmail').classList.remove('hidden');document.getElementById('twofcOtpStepVerify').classList.add('hidden');document.getElementById('twofcOtpStepPassword').classList.add('hidden');}
