@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>2FC E-SPORTS — Payment</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:radial-gradient(circle at top,#242b49 0,#090d18 48%,#05070d 100%);color:#fff;min-height:100vh}.wrap{max-width:520px;margin:auto;padding:18px 14px 30px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.brand{font-weight:900;font-size:20px}.brand small{display:block;font-size:8px;letter-spacing:1.5px;color:#94a3b8;margin-top:3px}.back{border:1px solid #334155;background:#111827;color:#cbd5e1;border-radius:10px;padding:8px 12px;font-size:11px;font-weight:800}.card{background:#0b1120;border:1px solid #26324d;border-radius:22px;padding:18px;box-shadow:0 20px 60px #0008}.title{text-align:center;font-size:22px;font-weight:900}.sub{text-align:center;color:#94a3b8;font-size:10px;margin-top:4px}.amount{margin-top:15px;padding:14px;border-radius:15px;background:#050a14;border:1px solid #26324d;text-align:center}.amount span{display:block;color:#64748b;font-size:8px;text-transform:uppercase;letter-spacing:1px}.amount strong{font-size:29px;display:block;margin-top:3px}.methods{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.method{border:2px solid #26324d;background:#0d1424;border-radius:16px;padding:14px 8px;color:#fff;cursor:pointer}.method.active.bk{border-color:#e2136e;background:#e2136e18}.method.active.ng{border-color:#ec1c24;background:#ec1c2418}.method b{display:block;font-size:17px}.method span{font-size:9px;color:#94a3b8}.paybox{margin-top:13px;border:1px solid #334155;border-radius:18px;padding:15px;background:#080e1a}.paybox.bk{border-color:#e2136e88}.paybox.ng{border-color:#ec1c2488}.paytitle{font-weight:900;font-size:14px}.hint{font-size:9px;color:#94a3b8;margin-top:4px}.numrow{display:flex;gap:7px;margin-top:12px}.number{flex:1;background:#050a14;border:1px solid #334155;border-radius:12px;padding:12px 7px;text-align:center;font-size:20px;font-weight:900;letter-spacing:1px}.copy{border:0;border-radius:12px;padding:0 12px;color:#fff;font-weight:900;font-size:10px;cursor:pointer}.bkbg{background:#e2136e}.ngbg{background:#ec1c24}.steps{margin-top:13px;display:grid;gap:7px}.step{font-size:10px;color:#cbd5e1;display:flex;gap:8px;line-height:1.45}.step i{font-style:normal;width:19px;height:19px;flex:none;border-radius:50%;background:#1e293b;display:grid;place-items:center;font-size:8px;font-weight:900}.label{display:block;font-size:10px;color:#94a3b8;font-weight:800;margin:15px 0 6px}.input{width:100%;border:1px solid #334155;background:#050a14;color:#fff;border-radius:12px;padding:13px;outline:none;font-size:13px}.submit{width:100%;border:0;border-radius:12px;color:#fff;padding:14px;margin-top:10px;font-size:11px;font-weight:900;cursor:pointer}.submit:disabled{opacity:.55}.status{display:none;margin-top:10px;padding:12px;border-radius:12px;text-align:center;font-size:10px;font-weight:800}.pending{display:block;background:#f59e0b18;border:1px solid #f59e0b66;color:#fbbf24}.ok{display:block;background:#10b98118;border:1px solid #10b98166;color:#34d399}.err{display:block;background:#f43f5e18;border:1px solid #f43f5e66;color:#fb7185}.contact{margin-top:13px;border:1px solid #26324d;background:#0b1120;border-radius:18px;padding:14px}.contact h4{margin:0;font-size:12px}.contactgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}.contact a{background:#061326;border:1px solid #174262;border-radius:11px;padding:10px;text-decoration:none;color:#cbd5e1}.contact a span{display:block;color:#64748b;font-size:8px;text-transform:uppercase}.contact a strong{display:block;font-size:9px;word-break:break-all;margin-top:3px}.foot{text-align:center;color:#475569;font-size:8px;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="top"><div class="brand">2FC E-SPORTS<small>PAYMENT NOTICE</small></div><button class="back" onclick="history.back()">← Back</button></div>
+<div class="card">
+<div class="title">Add Balance</div><div class="sub">bKash / Nagad payment notice</div>
+<div class="amount"><span>Amount to Pay</span><strong id="amount">৳ 0</strong></div>
+<div class="methods">
+<button id="bkBtn" class="method active bk" onclick="method('bkash')"><b>bKash</b><span>Send Money</span></button>
+<button id="ngBtn" class="method" onclick="method('nagad')"><b>নগদ</b><span>Send Money</span></button>
+</div>
+<div id="box" class="paybox bk">
+<div id="payTitle" class="paytitle">bKash Payment</div>
+<div class="hint">নিচের নম্বরে নির্ধারিত Amount Send Money করুন।</div>
+<div class="numrow"><div class="number">01640633138</div><button id="copy" class="copy bkbg" onclick="copyNumber()">COPY</button></div>
+<div class="steps"><div class="step"><i>1</i><span>আপনার bKash/Nagad App খুলুন।</span></div><div class="step"><i>2</i><span>Send Money নির্বাচন করুন।</span></div><div class="step"><i>3</i><span><b>01640633138</b> নম্বরে ঠিক উপরের Amount পাঠান।</span></div><div class="step"><i>4</i><span>Payment সফল হলে Transaction ID / TRX নিচে দিন।</span></div></div>
+<label class="label">Transaction ID / TRX</label>
+<input id="trx" class="input" autocomplete="off" placeholder="Transaction ID লিখুন">
+<button id="submit" class="submit bkbg" onclick="submitDeposit()">SUBMIT PAYMENT REQUEST</button>
+<div id="status" class="status"></div>
+</div>
+</div>
+<div class="contact"><h4>Contact Us</h4><div class="contactgrid"><a href="mailto:contact.2fcteam@gmail.com"><span>Email</span><strong>contact.2fcteam@gmail.com</strong></a><a href="https://wa.me/8801898915968" target="_blank" rel="noopener noreferrer"><span>WhatsApp</span><strong>01898915968</strong></a></div></div>
+<div class="foot">2FC E-SPORTS • Verification Pending until Admin approval</div>
+</div>
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import{getFirestore,doc,getDoc,collection,addDoc,query,where,getDocs,updateDoc}from"https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+const firebaseConfig={apiKey:"AIzaSyDsV0BWcuOo82m5lWdDae7tu_RgIxCL6GQ",authDomain:"fc-esports-fe1c4.firebaseapp.com",projectId:"fc-esports-fe1c4",storageBucket:"fc-esports-fe1c4.firebasestorage.app",messagingSenderId:"770892208283",appId:"1:770892208283:web:a0c8757985822396cf8e3e",measurementId:"G-4QGVN93M3L"};
+const db=getFirestore(initializeApp(firebaseConfig));const email=localStorage.getItem("2fc_user_email");const amountRaw=Number(new URLSearchParams(location.search).get("amount")||0);const amount=Math.round(amountRaw);document.getElementById("amount").textContent="৳ "+(amount||0).toLocaleString("en-US");let selected="bkash";
+function setStatus(cls,msg){const e=document.getElementById("status");e.className="status "+cls;e.textContent=msg}
+window.method=function(m){selected=m;const b=document.getElementById("box"),c=document.getElementById("copy"),s=document.getElementById("submit");document.getElementById("bkBtn").classList.toggle("active",m==="bkash");document.getElementById("ngBtn").classList.toggle("active",m==="nagad");b.classList.toggle("bk",m==="bkash");b.classList.toggle("ng",m==="nagad");c.className="copy "+(m==="bkash"?"bkbg":"ngbg");s.className="submit "+(m==="bkash"?"bkbg":"ngbg");document.getElementById("payTitle").textContent=m==="bkash"?"bKash Payment":"Nagad Payment"};
+window.copyNumber=async function(){try{await navigator.clipboard.writeText("01640633138")}catch(e){const x=document.createElement("textarea");x.value="01640633138";document.body.appendChild(x);x.select();document.execCommand("copy");x.remove()}const b=document.getElementById("copy"),old=b.textContent;b.textContent="COPIED ✓";setTimeout(()=>b.textContent=old,1400)};
+window.submitDeposit=async function(){const btn=document.getElementById("submit"),trx=document.getElementById("trx").value.trim();if(!email){setStatus("err","আগে 2FC account-এ Login করুন।");return}if(!amount||amount<=0){setStatus("err","সঠিক Amount পাওয়া যায়নি।");return}if(!trx){setStatus("err","Transaction ID / TRX দিন।");return}btn.disabled=true;setStatus("pending","Verification Pending — request জমা হচ্ছে...");try{const qs=await getDocs(query(collection(db,"deposits"),where("trxId","==",trx)));if(!qs.empty)throw new Error("এই Transaction ID ইতিমধ্যে ব্যবহার করা হয়েছে।");const us=await getDoc(doc(db,"users",email));if(!us.exists())throw new Error("User account পাওয়া যায়নি।");const u=us.data()||{};await addDoc(collection(db,"deposits"),{type:"ADD_MONEY",userEmail:email,userName:u.name||email,supportPin:u.supportPin||"",amount,method:selected,trxId:trx,status:"PENDING",paymentNumber:"01640633138",date:new Date().toLocaleString()});const txs=Array.isArray(u.transactions)?u.transactions:[];if(!txs.some(t=>String(t.trxId||"").trim()===trx)){txs.unshift({date:new Date().toLocaleString("en-US",{day:"numeric",month:"short",year:"numeric"}),trxId:trx,amount,status:"PENDING"});await updateDoc(doc(db,"users",email),{transactions:txs})}document.getElementById("trx").value="";setStatus("ok","✓ Payment request জমা হয়েছে। Status: PENDING");}catch(e){btn.disabled=false;setStatus("err",e.message||"Payment request submit করা যায়নি।")}};
+</script>
+</body>
+</html>
