@@ -1,13 +1,25 @@
 {
-  "background_color": "#06182e",
-  "dir": "ltr",
-  "display": "standalone",
-  "name": "2FC E-SPORTS",
-  "orientation": "any",
-  "scope": "/",
-  "short_name": "2FC E-SPORTS",
-  "start_url": "/",
-  "theme_color": "#06182e",
-  "id": "https://2fcesports.cyou/",
-  "description": "2FC E-SPORTS Tournament Gaming App"
+"background_color": "#06182e",
+"dir": "ltr",
+"display": "standalone",
+"name": "2FC E-SPORTS",
+"orientation": "any",
+"scope": "/",
+"short_name": "2FC E-SPORTS",
+"start_url": "/",
+"theme_color": "#06182e",
+"id": "https://2fcesports.cyou/",
+"description": "2FC E-SPORTS Tournament Gaming App",
+"icons": [
+{
+"src": "/2fc-logo-192.png",
+"sizes": "192x192",
+"type": "image/png"
+},
+{
+"src": "/2fc-logo-512.png",
+"sizes": "512x512",
+"type": "image/png"
+}
+]
 }
