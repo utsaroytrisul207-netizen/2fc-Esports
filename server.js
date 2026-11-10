@@ -1,24 +1,22 @@
+
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import nodemailer from 'nodemailer';
 import admin from 'firebase-admin';
 import crypto from 'node:crypto';
 
 const app = express();
-
 const PORT = Number(process.env.PORT || 3000);
 
 // ===============================
 // 2FC E-SPORTS OTP SECURITY
 // ===============================
 
-const OTP_TTL_MS = 5 * 60_000;          // OTP valid for 5 minutes
-const RESEND_COOLDOWN_MS = 60_000;      // New OTP after 60 seconds
+const OTP_TTL_MS = 5 * 60_000;
+const RESEND_COOLDOWN_MS = 60_000;
 const RESET_SESSION_TTL_MS = 10 * 60_000;
 const MAX_OTP_ATTEMPTS = 5;
 
-// Basic request limits
 const REQUEST_WINDOW_MS = 10 * 60_000;
 const MAX_REQUESTS_PER_WINDOW = 10;
 
@@ -37,22 +35,21 @@ function required(name) {
 }
 
 function parseAllowedOrigins() {
-  const raw = process.env.ALLOWED_ORIGINS || '*';
+  const raw =
+    process.env.ALLOWED_ORIGINS ||
+    process.env.ALLOWED_ORIGIN ||
+    '*';
 
-  if (raw === '*') {
-    return true;
-  }
+  if (raw === '*') return true;
 
   return raw
     .split(',')
-    .map(v => v.trim())
+    .map(value => value.trim())
     .filter(Boolean);
 }
 
 function normalizeEmail(value) {
-  return String(value || '')
-    .trim()
-    .toLowerCase();
+  return String(value || '').trim().toLowerCase();
 }
 
 function validGmail(email) {
@@ -60,16 +57,11 @@ function validGmail(email) {
 }
 
 function randomOtp() {
-  return String(
-    crypto.randomInt(0, 1_000_000)
-  ).padStart(6, '0');
+  return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
 }
 
 function hash(value) {
-  return crypto
-    .createHash('sha256')
-    .update(value)
-    .digest('hex');
+  return crypto.createHash('sha256').update(value).digest('hex');
 }
 
 function safeEqual(a, b) {
@@ -78,9 +70,7 @@ function safeEqual(a, b) {
   const aa = Buffer.from(String(a), 'utf8');
   const bb = Buffer.from(String(b), 'utf8');
 
-  if (aa.length !== bb.length) {
-    return false;
-  }
+  if (aa.length !== bb.length) return false;
 
   return crypto.timingSafeEqual(aa, bb);
 }
@@ -115,6 +105,7 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Cache-Control', 'no-store');
+
   res.setHeader(
     'Permissions-Policy',
     'camera=(), microphone=(), geolocation=()'
@@ -129,7 +120,14 @@ app.use((req, res, next) => {
 
 if (!admin.apps.length) {
   const serviceAccountJson =
-    required('FIREBASE_SERVICE_ACCOUNT_JSON');
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
+    process.env.FIREBASE_SERVICE_ACCOUNT;
+
+  if (!serviceAccountJson) {
+    throw new Error(
+      'Missing required environment variable: FIREBASE_SERVICE_ACCOUNT_JSON (or FIREBASE_SERVICE_ACCOUNT)'
+    );
+  }
 
   let serviceAccount;
 
@@ -137,7 +135,7 @@ if (!admin.apps.length) {
     serviceAccount = JSON.parse(serviceAccountJson);
   } catch {
     throw new Error(
-      'FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON.'
+      'Firebase service account environment variable is not valid JSON.'
     );
   }
 
@@ -150,28 +148,17 @@ const db = admin.firestore();
 const auth = admin.auth();
 
 // ===============================
-// GMAIL
+// RESEND EMAIL API
 // ===============================
 
-const gmailUser = required('GMAIL_USER');
-const gmailAppPassword = required('GMAIL_APP_PASSWORD');
-
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: gmailUser,
-    pass: gmailAppPassword
-  }
-});
+const resendApiKey = required('RESEND_API_KEY');
+const resendFrom = required('RESEND_FROM');
 
 // ===============================
 // MEMORY STORES
 // ===============================
 
-// email -> OTP/reset information
 const otpStore = new Map();
-
-// IP -> request information
 const requestRateStore = new Map();
 
 // ===============================
@@ -182,9 +169,7 @@ function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
 
   if (forwarded) {
-    return String(forwarded)
-      .split(',')[0]
-      .trim();
+    return String(forwarded).split(',')[0].trim();
   }
 
   return req.ip || 'unknown';
@@ -196,7 +181,10 @@ function checkRequestRate(req) {
 
   let record = requestRateStore.get(ip);
 
-  if (!record || current - record.startedAt >= REQUEST_WINDOW_MS) {
+  if (
+    !record ||
+    current - record.startedAt >= REQUEST_WINDOW_MS
+  ) {
     record = {
       startedAt: current,
       count: 0
@@ -204,14 +192,9 @@ function checkRequestRate(req) {
   }
 
   record.count += 1;
-
   requestRateStore.set(ip, record);
 
-  if (record.count > MAX_REQUESTS_PER_WINDOW) {
-    return false;
-  }
-
-  return true;
+  return record.count <= MAX_REQUESTS_PER_WINDOW;
 }
 
 // ===============================
@@ -219,26 +202,26 @@ function checkRequestRate(req) {
 // ===============================
 
 function cleanupExpired() {
-  const t = now();
+  const currentTime = now();
 
-  // OTP cleanup
   for (const [email, record] of otpStore) {
     const otpExpired =
       record.otpExpiresAt > 0 &&
-      record.otpExpiresAt <= t;
+      record.otpExpiresAt <= currentTime;
 
     const resetExpired =
       !record.resetExpiresAt ||
-      record.resetExpiresAt <= t;
+      record.resetExpiresAt <= currentTime;
 
     if (otpExpired && resetExpired) {
       otpStore.delete(email);
     }
   }
 
-  // IP rate-limit cleanup
   for (const [ip, record] of requestRateStore) {
-    if (t - record.startedAt >= REQUEST_WINDOW_MS) {
+    if (
+      currentTime - record.startedAt >= REQUEST_WINDOW_MS
+    ) {
       requestRateStore.delete(ip);
     }
   }
@@ -247,67 +230,95 @@ function cleanupExpired() {
 setInterval(cleanupExpired, 60_000).unref();
 
 // ===============================
-// SEND OTP EMAIL
+// SEND OTP EMAIL THROUGH RESEND
 // ===============================
 
 async function sendOtpEmail(email, otp) {
-  await transporter.sendMail({
-    from: `"2FC E-SPORTS" <${gmailUser}>`,
-    to: email,
-    subject: '2FC E-SPORTS — Password Reset OTP',
+  const response = await fetch(
+    'https://api.resend.com/emails',
+    {
+      method: 'POST',
 
-    text:
-      `Your 2FC E-SPORTS password reset OTP is ${otp}.\n\n` +
-      `This OTP is valid for 5 minutes.\n` +
-      `After 5 wrong attempts, the OTP becomes invalid.\n\n` +
-      `If you did not request this password reset, you can ignore this email.`,
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json'
+      },
 
-    html: `
-      <div style="
-        font-family:Arial,sans-serif;
-        line-height:1.5;
-        max-width:600px;
-        margin:auto;
-        padding:20px;
-      ">
+      body: JSON.stringify({
+        from: resendFrom,
+        to: [email],
 
-        <h2>2FC E-SPORTS — Password Reset</h2>
+        subject: '2FC E-SPORTS — Password Reset OTP',
 
-        <p>Your 6-digit password reset OTP is:</p>
+        text:
+          `Your 2FC E-SPORTS password reset OTP is ${otp}.\n\n` +
+          `This OTP is valid for 5 minutes.\n` +
+          `After 5 wrong attempts, the OTP becomes invalid.\n\n` +
+          `If you did not request this password reset, you can ignore this email.`,
 
-        <div style="
-          font-size:32px;
-          font-weight:800;
-          letter-spacing:8px;
-          margin:20px 0;
-        ">
-          ${otp}
-        </div>
+        html: `
+          <div style="
+            font-family:Arial,sans-serif;
+            line-height:1.5;
+            max-width:600px;
+            margin:auto;
+            padding:20px;
+          ">
 
-        <p>
-          This OTP is valid for
-          <b>5 minutes</b>.
-        </p>
+            <h2>2FC E-SPORTS — Password Reset</h2>
 
-        <p>
-          After 5 wrong attempts,
-          the current OTP becomes invalid.
-        </p>
+            <p>Your 6-digit password reset OTP is:</p>
 
-        <p>
-          If you did not request a password reset,
-          you can safely ignore this email.
-        </p>
+            <div style="
+              font-size:32px;
+              font-weight:800;
+              letter-spacing:8px;
+              margin:20px 0;
+            ">
+              ${otp}
+            </div>
 
-        <hr>
+            <p>
+              This OTP is valid for
+              <b>5 minutes</b>.
+            </p>
 
-        <p style="font-size:12px;color:#777">
-          2FC E-SPORTS Security System
-        </p>
+            <p>
+              After 5 wrong attempts,
+              the current OTP becomes invalid.
+            </p>
 
-      </div>
-    `
-  });
+            <p>
+              If you did not request a password reset,
+              you can safely ignore this email.
+            </p>
+
+            <hr>
+
+            <p style="font-size:12px;color:#777">
+              2FC E-SPORTS Security System
+            </p>
+
+          </div>
+        `
+      })
+    }
+  );
+
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    console.error(
+      'Resend API error:',
+      response.status,
+      result
+    );
+
+    throw new Error(
+      result?.message ||
+      `Resend API request failed with status ${response.status}`
+    );
+  }
 }
 
 // ===============================
@@ -327,37 +338,30 @@ app.get('/health', (req, res) => {
 
 app.post('/api/password-otp/request', async (req, res) => {
   try {
-
     if (!checkRequestRate(req)) {
       return res.status(429).json({
         ok: false,
-        message:
-          'Too many requests. Please try again later.'
+        message: 'Too many requests. Please try again later.'
       });
     }
 
-    const email = normalizeEmail(
-      req.body?.email
-    );
+    const email = normalizeEmail(req.body?.email);
 
     if (!validGmail(email)) {
       return res.status(400).json({
         ok: false,
-        message:
-          'Enter a valid registered Gmail.'
+        message: 'Enter a valid registered Gmail.'
       });
     }
 
     const existing = otpStore.get(email);
 
-    // 60 second resend protection
+    // 60-second resend protection
     if (
       existing &&
       existing.lastSentAt &&
-      now() - existing.lastSentAt <
-        RESEND_COOLDOWN_MS
+      now() - existing.lastSentAt < RESEND_COOLDOWN_MS
     ) {
-
       const wait = Math.ceil(
         (
           RESEND_COOLDOWN_MS -
@@ -374,11 +378,8 @@ app.post('/api/password-otp/request', async (req, res) => {
 
     // Check Firebase Authentication account
     try {
-
       await auth.getUserByEmail(email);
-
     } catch {
-
       return res.status(404).json({
         ok: false,
         message:
@@ -388,14 +389,12 @@ app.post('/api/password-otp/request', async (req, res) => {
 
     const otp = randomOtp();
 
-    // Send email BEFORE storing OTP
+    // Send email before storing OTP
     await sendOtpEmail(email, otp);
 
     otpStore.set(email, {
-
       otpHash: hash(otp),
 
-      // 5 minute validity
       otpExpiresAt:
         now() + OTP_TTL_MS,
 
@@ -411,21 +410,15 @@ app.post('/api/password-otp/request', async (req, res) => {
 
     return res.json({
       ok: true,
-      message:
-        'OTP sent to your registered Gmail.'
+      message: 'OTP sent to your registered Gmail.'
     });
 
   } catch (error) {
-
-    console.error(
-      'OTP request error:',
-      error
-    );
+    console.error('OTP request error:', error);
 
     return res.status(500).json({
       ok: false,
-      message:
-        'Unable to send OTP right now.'
+      message: 'Unable to send OTP right now.'
     });
   }
 });
@@ -435,20 +428,15 @@ app.post('/api/password-otp/request', async (req, res) => {
 // ===============================
 
 app.post('/api/password-otp/verify', async (req, res) => {
-
   try {
-
     if (!checkRequestRate(req)) {
       return res.status(429).json({
         ok: false,
-        message:
-          'Too many requests. Please try again later.'
+        message: 'Too many requests. Please try again later.'
       });
     }
 
-    const email = normalizeEmail(
-      req.body?.email
-    );
+    const email = normalizeEmail(req.body?.email);
 
     const otp = String(
       req.body?.otp || ''
@@ -458,47 +446,36 @@ app.post('/api/password-otp/verify', async (req, res) => {
       !validGmail(email) ||
       !/^\d{6}$/.test(otp)
     ) {
-
       return res.status(400).json({
         ok: false,
-        message:
-          'Enter the 6-digit OTP.'
+        message: 'Enter the 6-digit OTP.'
       });
     }
 
-    const record =
-      otpStore.get(email);
+    const record = otpStore.get(email);
 
     if (!record) {
-
       return res.status(400).json({
         ok: false,
-        message:
-          'OTP expired. Please request a new OTP.'
+        message: 'OTP expired. Please request a new OTP.'
       });
     }
 
-    // OTP expired
+    // OTP expiration
     if (
       !record.otpExpiresAt ||
       record.otpExpiresAt <= now()
     ) {
-
       otpStore.delete(email);
 
       return res.status(400).json({
         ok: false,
-        message:
-          'OTP expired. Please request a new OTP.'
+        message: 'OTP expired. Please request a new OTP.'
       });
     }
 
-    // Too many attempts
-    if (
-      record.attempts >=
-      MAX_OTP_ATTEMPTS
-    ) {
-
+    // Maximum attempts
+    if (record.attempts >= MAX_OTP_ATTEMPTS) {
       otpStore.delete(email);
 
       return res.status(429).json({
@@ -508,8 +485,7 @@ app.post('/api/password-otp/verify', async (req, res) => {
       });
     }
 
-    const suppliedHash =
-      hash(otp);
+    const suppliedHash = hash(otp);
 
     // Secure constant-time comparison
     if (
@@ -518,14 +494,9 @@ app.post('/api/password-otp/verify', async (req, res) => {
         record.otpHash
       )
     ) {
-
       record.attempts += 1;
 
-      if (
-        record.attempts >=
-        MAX_OTP_ATTEMPTS
-      ) {
-
+      if (record.attempts >= MAX_OTP_ATTEMPTS) {
         otpStore.delete(email);
 
         return res.status(429).json({
@@ -539,18 +510,13 @@ app.post('/api/password-otp/verify', async (req, res) => {
         ok: false,
         message:
           `Wrong OTP. ${
-            MAX_OTP_ATTEMPTS -
-            record.attempts
+            MAX_OTP_ATTEMPTS - record.attempts
           } attempts remaining.`
       });
     }
 
-    // ===============================
     // OTP SUCCESS
-    // ===============================
-
-    const resetToken =
-      randomToken();
+    const resetToken = randomToken();
 
     // Make OTP single-use
     record.otpHash = null;
@@ -558,12 +524,10 @@ app.post('/api/password-otp/verify', async (req, res) => {
     record.attempts = 0;
 
     // Temporary reset session
-    record.resetTokenHash =
-      hash(resetToken);
+    record.resetTokenHash = hash(resetToken);
 
     record.resetExpiresAt =
-      now() +
-      RESET_SESSION_TTL_MS;
+      now() + RESET_SESSION_TTL_MS;
 
     return res.json({
       ok: true,
@@ -571,16 +535,11 @@ app.post('/api/password-otp/verify', async (req, res) => {
     });
 
   } catch (error) {
-
-    console.error(
-      'OTP verify error:',
-      error
-    );
+    console.error('OTP verify error:', error);
 
     return res.status(500).json({
       ok: false,
-      message:
-        'Unable to verify OTP right now.'
+      message: 'Unable to verify OTP right now.'
     });
   }
 });
@@ -590,20 +549,15 @@ app.post('/api/password-otp/verify', async (req, res) => {
 // ===============================
 
 app.post('/api/password-otp/reset', async (req, res) => {
-
   try {
-
     if (!checkRequestRate(req)) {
       return res.status(429).json({
         ok: false,
-        message:
-          'Too many requests. Please try again later.'
+        message: 'Too many requests. Please try again later.'
       });
     }
 
-    const email = normalizeEmail(
-      req.body?.email
-    );
+    const email = normalizeEmail(req.body?.email);
 
     const resetToken = String(
       req.body?.resetToken || ''
@@ -621,18 +575,13 @@ app.post('/api/password-otp/reset', async (req, res) => {
       !validGmail(email) ||
       !resetToken
     ) {
-
       return res.status(400).json({
         ok: false,
-        message:
-          'Invalid reset session.'
+        message: 'Invalid reset session.'
       });
     }
 
-    if (
-      newPassword.length < 6
-    ) {
-
+    if (newPassword.length < 6) {
       return res.status(400).json({
         ok: false,
         message:
@@ -640,20 +589,14 @@ app.post('/api/password-otp/reset', async (req, res) => {
       });
     }
 
-    if (
-      newPassword !==
-      confirmPassword
-    ) {
-
+    if (newPassword !== confirmPassword) {
       return res.status(400).json({
         ok: false,
-        message:
-          'Passwords do not match.'
+        message: 'Passwords do not match.'
       });
     }
 
-    const record =
-      otpStore.get(email);
+    const record = otpStore.get(email);
 
     if (
       !record ||
@@ -664,7 +607,6 @@ app.post('/api/password-otp/reset', async (req, res) => {
         record.resetTokenHash
       )
     ) {
-
       return res.status(400).json({
         ok: false,
         message:
@@ -673,8 +615,7 @@ app.post('/api/password-otp/reset', async (req, res) => {
     }
 
     // Find Firebase user
-    const user =
-      await auth.getUserByEmail(email);
+    const user = await auth.getUserByEmail(email);
 
     // Change Firebase Authentication password
     await auth.updateUser(
@@ -684,20 +625,16 @@ app.post('/api/password-otp/reset', async (req, res) => {
       }
     );
 
-    // Metadata ONLY.
-    // Never store password or reset token.
+    // Metadata only. Never store password or reset token.
     await db
       .collection('passwordChangeEvents')
       .add({
-
         uid: user.uid,
 
         email,
 
         changedAt:
-          admin.firestore
-            .FieldValue
-            .serverTimestamp(),
+          admin.firestore.FieldValue.serverTimestamp(),
 
         method:
           '6-digit-email-otp'
@@ -713,11 +650,7 @@ app.post('/api/password-otp/reset', async (req, res) => {
     });
 
   } catch (error) {
-
-    console.error(
-      'Password reset error:',
-      error
-    );
+    console.error('Password reset error:', error);
 
     return res.status(500).json({
       ok: false,
@@ -731,33 +664,21 @@ app.post('/api/password-otp/reset', async (req, res) => {
 // ERROR HANDLER
 // ===============================
 
-app.use(
-  (err, req, res, next) => {
+app.use((err, req, res, next) => {
+  console.error('Unhandled server error:', err);
 
-    console.error(
-      'Unhandled server error:',
-      err
-    );
-
-    res.status(500).json({
-      ok: false,
-      message:
-        'Internal server error.'
-    });
-  }
-);
+  res.status(500).json({
+    ok: false,
+    message: 'Internal server error.'
+  });
+});
 
 // ===============================
 // START SERVER
 // ===============================
 
-app.listen(
-  PORT,
-  () => {
-
-    console.log(
-      `2FC E-SPORTS OTP backend running on port ${PORT}`
-    );
-
-  }
-);
+app.listen(PORT, () => {
+  console.log(
+    `2FC E-SPORTS OTP backend running on port ${PORT}`
+  );
+});
