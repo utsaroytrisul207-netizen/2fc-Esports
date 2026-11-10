@@ -12,7 +12,7 @@ const PORT = Number(process.env.PORT || 3000);
 // 2FC E-SPORTS OTP SECURITY
 // ===============================
 
-const OTP_TTL_MS = 5 * 60_000;
+const OTP_TTL_MS = 60_000;
 const RESEND_COOLDOWN_MS = 60_000;
 const RESET_SESSION_TTL_MS = 10 * 60_000;
 const MAX_OTP_ATTEMPTS = 5;
@@ -252,7 +252,7 @@ async function sendOtpEmail(email, otp) {
 
         text:
           `Your 2FC E-SPORTS password reset OTP is ${otp}.\n\n` +
-          `This OTP is valid for 5 minutes.\n` +
+          `This OTP is valid for 1 minute.\n` +
           `After 5 wrong attempts, the OTP becomes invalid.\n\n` +
           `If you did not request this password reset, you can ignore this email.`,
 
@@ -280,7 +280,7 @@ async function sendOtpEmail(email, otp) {
 
             <p>
               This OTP is valid for
-              <b>5 minutes</b>.
+              <b>1 minute</b>.
             </p>
 
             <p>
