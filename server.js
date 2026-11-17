@@ -1,4 +1,3 @@
-
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -92,7 +91,7 @@ app.disable('x-powered-by');
 app.use(cors({
   origin: parseAllowedOrigins(),
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   maxAge: 86400
 }));
 
@@ -330,6 +329,193 @@ app.get('/health', (req, res) => {
     ok: true,
     service: '2FC E-SPORTS OTP backend'
   });
+});
+
+// ===============================
+// FIREBASE CLOUD MESSAGING PUSH SENDER
+// ===============================
+
+app.post('/api/push/send', async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+
+    const idToken = authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7).trim()
+      : '';
+
+    if (!idToken) {
+      return res.status(401).json({
+        ok: false,
+        message: 'Admin authentication required.'
+      });
+    }
+
+    const decoded = await auth.verifyIdToken(idToken);
+
+    const adminSnap = await db
+      .collection('admins')
+      .doc(decoded.uid)
+      .get();
+
+    if (
+      !adminSnap.exists ||
+      adminSnap.data()?.active !== true
+    ) {
+      return res.status(403).json({
+        ok: false,
+        message: 'Active admin access required.'
+      });
+    }
+
+    const title = String(
+      req.body?.title || ''
+    ).trim().slice(0, 100);
+
+    const body = String(
+      req.body?.message || ''
+    ).trim().slice(0, 1500);
+
+    const recipients = Array.isArray(req.body?.recipients)
+      ? req.body.recipients
+      : [];
+
+    const unique = new Map();
+
+    for (const item of recipients) {
+      const email = normalizeEmail(item?.email);
+
+      const notificationId = String(
+        item?.notificationId || ''
+      ).trim();
+
+      if (email && notificationId) {
+        unique.set(email, notificationId);
+      }
+    }
+
+    if (
+      !title ||
+      !body ||
+      !unique.size ||
+      unique.size > 500
+    ) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Invalid push notification details.'
+      });
+    }
+
+    const recipientRows = [...unique.entries()];
+
+    const userDocs = await Promise.all(
+      recipientRows.map(([email]) =>
+        db.collection('users').doc(email).get()
+      )
+    );
+
+    const messages = [];
+    const tokenRefs = [];
+
+    userDocs.forEach((snap, index) => {
+      const [email, notificationId] = recipientRows[index];
+
+      const token = String(
+        snap.data()?.fcmToken || ''
+      ).trim();
+
+      if (!token) return;
+
+      messages.push({
+        token,
+
+        data: {
+          title,
+          body,
+
+          url:
+            '/?notificationId=' +
+            encodeURIComponent(notificationId),
+
+          notificationId,
+          notificationType: '2fc-user-notification'
+        },
+
+        webpush: {
+          headers: {
+            TTL: '86400',
+            Urgency: 'high'
+          }
+        }
+      });
+
+      tokenRefs.push(snap.ref);
+    });
+
+    if (!messages.length) {
+      return res.json({
+        ok: true,
+        sent: 0,
+        noDevice: recipientRows.length,
+        message: 'No enabled devices found.'
+      });
+    }
+
+    const results = await Promise.allSettled(
+      messages.map(message =>
+        admin.messaging().send(message)
+      )
+    );
+
+    const invalidCodes = new Set([
+      'messaging/registration-token-not-registered',
+      'messaging/invalid-registration-token'
+    ]);
+
+    const cleanup = [];
+
+    let sent = 0;
+    let failed = 0;
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        sent += 1;
+      } else {
+        failed += 1;
+
+        if (invalidCodes.has(result.reason?.code)) {
+          cleanup.push(
+            tokenRefs[index].update({
+              fcmToken: admin.firestore.FieldValue.delete(),
+              fcmTokenUpdatedAt: admin.firestore.FieldValue.delete()
+            })
+          );
+        }
+      }
+    });
+
+    if (cleanup.length) {
+      await Promise.allSettled(cleanup);
+    }
+
+    return res.json({
+      ok: true,
+      sent,
+      failed,
+      noDevice: recipientRows.length - messages.length
+    });
+
+  } catch (error) {
+    console.error('FCM push send error:', error);
+
+    const status = String(
+      error?.code || ''
+    ).startsWith('auth/') ? 401 : 500;
+
+    return res.status(status).json({
+      ok: false,
+      message: 'Could not send push notifications.'
+    });
+  }
 });
 
 // ===============================
