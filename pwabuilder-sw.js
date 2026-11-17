@@ -1,3 +1,5 @@
+// pwabuilder-sw.js
+
 // This is the "Offline page" service worker
 
 // Firebase Cloud Messaging background support for 2FC E-SPORTS.
