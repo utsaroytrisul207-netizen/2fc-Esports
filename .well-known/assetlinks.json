@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.twofcesports.app",
+      "sha256_cert_fingerprints": [
+        "CB:E3:C5:0B:98:48:EB:A6:90:C4:4B:98:97:4C:80:EF:0E:C4:66:02:FA:7E:72:3A:FC:07:F0:98:0D:77:62:AF"
+      ]
+    }
+  }
+]
