@@ -2022,7 +2022,7 @@ async function adminSearchOrderNumber(){
                 detail('User name',d.userName||d.name),detail('User email',d.userEmail),
                 detail('Support PIN',d.supportPin),detail(isDeposit?'Deposit amount (BDT)':'Withdraw amount (BDT)','৳'+amount.toFixed(2)),
                 detail('Payment method',method),detail('Transaction type',d.type|| (isDeposit?'ADD_MONEY':'WITHDRAW')),
-                detail('Currency',d.currency||'BDT'),detail('Created time',time),detail('Order number',order),
+                detail('Currency',d.currency||'BDT'),detail('Created time',time),
                 detail('Status',status),detail('Document ID',d.id)
             ];
             if(isDeposit){
@@ -2039,7 +2039,7 @@ async function adminSearchOrderNumber(){
                 if(String(d.method||'').toLowerCase()==='binance'){rows.push(detail('Withdraw amount (BDT)','৳'+Number(d.bdtAmount??d.amount??0).toFixed(2)));rows.push(detail('Binance amount (USD)','$'+Number(d.usdAmount??d.dollarAmount??0).toFixed(8)+' USD'));rows.push(detail('USD/BDT rate','1 USD = ৳'+Number(d.exchangeRate??d.dollarRate??0).toFixed(2)));}
                 rows.push(detail('Withdraw type',d.withdrawType));rows.push(detail('Approved time',d.approvedAt));rows.push(detail('Rejected time',d.rejectedAt));
             }
-            return `<article class="bg-[#071b31] border border-cyan-800 rounded-xl p-3 mt-2 text-xs space-y-1.5"><div class="flex justify-between items-center gap-2"><strong class="text-white">${isDeposit?'Deposit':'Withdraw'} Details</strong><strong class="${statusClass}">${status}</strong></div>${rows.join('')}<p class="flex items-center gap-2 text-cyan-200 font-mono break-all">Order Number: <span>${escapeHtml(order)}</span><button type="button" data-order="${escapeHtml(order)}" onclick="copyAdminMoneyOrder(this)" aria-label="Copy order number"><i class="fa-regular fa-copy"></i></button></p></article>`;
+            return `<article class="bg-[#071b31] border border-cyan-800 rounded-xl p-3 mt-2 text-xs space-y-1.5"><div class="flex justify-between items-center gap-2"><strong class="text-white">${isDeposit?'Deposit':'Withdraw'} Details</strong><strong class="${statusClass}">${status}</strong></div>${rows.join('')}<p class="flex items-center gap-2 text-cyan-200 font-mono break-all">Order Number: <span>${escapeHtml(order)}</span><button type="button" data-order="${escapeHtml(order)}" onclick="copyAdminMoneyOrder(this)" aria-label="Copy order number"><i class="fa-regular fa-copy"></i></button></p>${(d.rejectionReason||d.approvalReason)?detail('Remarks',d.rejectionReason||d.approvalReason):''}</article>`;
         }).join('');
     }catch(e){if(sequence===adminOrderSearchSequence&&result)result.innerHTML='<p class="text-xs text-rose-300">Search করা যায়নি। Firebase permission বা connection পরীক্ষা করুন।</p>';}
 }
