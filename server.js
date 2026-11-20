@@ -1,3 +1,4 @@
+
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -27,7 +28,9 @@ function required(name) {
   const value = process.env[name];
 
   if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
+    throw new Error(
+      `Missing required environment variable: ${name}`
+    );
   }
 
   return value;
@@ -52,7 +55,7 @@ function normalizeEmail(value) {
 }
 
 function validGmail(email) {
-  return /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@gmail\.com$/i.test(email);
+  return /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@gmail.com$/i.test(email);
 }
 
 function randomOtp() {
