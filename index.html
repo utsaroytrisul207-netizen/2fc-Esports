@@ -1386,12 +1386,24 @@ body{padding-bottom:calc(88px + env(safe-area-inset-bottom,0px))!important}
 .twofc-profile-identity{min-width:0;flex:1}.twofc-profile-name{display:flex;align-items:center;gap:8px;max-width:100%;padding:0;background:none;border:0;color:#342d20;font-size:19px;font-weight:900;text-align:left;overflow-wrap:anywhere}.twofc-profile-name i{font-size:12px;color:#87620c}
 .twofc-support-pin{display:inline-flex;align-items:center;gap:9px;margin-top:9px;padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.48);border:1px solid rgba(255,255,255,.6)}.twofc-support-pin span{font-size:9px;font-weight:900;letter-spacing:.7px}.twofc-support-pin strong{font-size:13px;letter-spacing:2px}.twofc-support-pin button{border:0;background:none;color:#5e4a1c;padding:0 2px;font-size:15px}
 .twofc-profile-dates{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px;padding-top:13px;border-top:1px solid rgba(109,80,18,.18)}.twofc-profile-dates>div{display:grid;grid-template-columns:17px 1fr;column-gap:7px;align-items:center}.twofc-profile-dates i{grid-row:span 2;color:#8d6817;font-size:13px}.twofc-profile-dates span{font-size:9px;color:#755c2a;font-weight:700}.twofc-profile-dates strong{font-size:10px;color:#3b3325;overflow-wrap:anywhere}
-.twofc-balance-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.twofc-balance-card{padding:17px 14px;border-radius:17px;background:#fff;color:#49443a;box-shadow:0 5px 16px rgba(0,0,0,.07);border:1px solid #f0e8d3}.twofc-balance-card span{display:block;font-size:9px;font-weight:900;color:#9b843d;letter-spacing:.4px}.twofc-balance-card span i{margin-right:5px;color:#e7b52d}.twofc-balance-card strong{display:block;margin-top:8px;font-size:22px;font-weight:900;color:#28251f}
-.twofc-history-btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;min-height:38px;margin-top:12px;padding:8px 9px;border:1px solid #ead89e;border-radius:11px;background:linear-gradient(135deg,#fff9e8,#fff);color:#79601b;font-size:11px;font-weight:900;box-shadow:0 2px 7px rgba(130,99,23,.08)}.twofc-history-btn i{font-size:13px;color:#d6a52a}.twofc-history-btn:active{transform:scale(.98)}
+.twofc-balance-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 14px}
+.twofc-balance-card{min-width:0;padding:13px 12px;border-radius:15px;background:#fff;color:#49443a;box-shadow:0 5px 16px rgba(0,0,0,.07);border:1px solid #f0e8d3}
+.twofc-balance-card span{display:block;font-size:9px;font-weight:900;color:#9b843d;letter-spacing:.35px;white-space:nowrap}
+.twofc-balance-card span i{margin-right:4px;color:#e7b52d}
+.twofc-balance-card strong{display:block;margin-top:7px;font-size:20px;font-weight:900;color:#28251f;overflow-wrap:anywhere}
+.twofc-history-btn{width:100%;min-width:0;min-height:86px;padding:12px 10px;display:flex;align-items:center;justify-content:flex-start;gap:11px;text-align:left;border:1px solid #f0eeee;border-radius:15px;background:#fff;color:#172033;box-shadow:0 4px 13px rgba(0,0,0,.055);transition:transform .15s ease}
+.twofc-history-btn:active{transform:scale(.985)}
+.twofc-history-btn .twofc-history-icon{width:48px;height:48px;flex:0 0 48px;display:grid;place-items:center;border-radius:13px;font-size:23px}
+.twofc-history-btn.deposit-history .twofc-history-icon{background:#ffe2e3;color:#ed6870}
+.twofc-history-btn.withdraw-history .twofc-history-icon{background:#ffead6;color:#ef8a25}
+.twofc-history-btn .twofc-history-copy{display:flex;min-width:0;flex-direction:column;gap:3px}
+.twofc-history-btn .twofc-history-title{font-size:15px;line-height:1.15;font-weight:800;color:#172033}
+.twofc-history-btn .twofc-history-subtitle{font-size:12px;line-height:1.2;color:#818797;font-weight:500}
+
 .twofc-profile-menu,.twofc-service-panel{padding:4px 15px;border-radius:18px;background:#fff;box-shadow:0 5px 16px rgba(0,0,0,.06)}.twofc-profile-menu button{display:flex;align-items:center;gap:12px;width:100%;min-height:62px;padding:8px 2px;border:0;border-bottom:1px solid #f1eee7;background:transparent;text-align:left;color:#4a4842;font-size:13px;font-weight:700}.twofc-profile-menu button:last-child{border-bottom:0}.twofc-profile-menu button>span:nth-child(2){flex:1}.twofc-profile-menu button>i{font-size:12px;color:#a8a39a}.twofc-profile-menu button small{float:right;color:#9a8a5d;font-size:10px;font-weight:600}.twofc-menu-icon{width:39px;height:39px;display:grid;place-items:center;border-radius:12px;background:#fff5cf;color:#e5b62e;font-size:17px}.twofc-profile-menu button.is-disabled{opacity:.48}
 .twofc-service-panel{padding:17px 15px}.twofc-service-panel h3{margin:0 0 15px;font-size:14px;font-weight:800;color:#4a463c}.twofc-service-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.twofc-service-grid button{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 4px;border:0;border-radius:12px;background:#fffaf0;color:#81734c;font-size:10px;font-weight:700}.twofc-service-grid button i{font-size:23px;color:#e6b72e}.twofc-service-grid button.is-disabled{opacity:.5}
 .twofc-logout-btn{width:100%;min-height:54px;border:1px solid #f1d98c;border-radius:28px;background:#fff;color:#d7a92b;font-size:15px;font-weight:800}.twofc-logout-btn i{margin-right:8px}
-@media(max-width:420px){.twofc-profile-hero{padding:17px 14px}.twofc-profile-photo{width:72px;height:72px;flex-basis:72px}.twofc-profile-name{font-size:17px}.twofc-profile-dates{gap:6px}.twofc-profile-dates strong{font-size:9px}.twofc-balance-card{padding:14px 11px}.twofc-balance-card strong{font-size:20px}}
+@media(max-width:420px){.twofc-profile-hero{padding:17px 14px}.twofc-profile-photo{width:72px;height:72px;flex-basis:72px}.twofc-profile-name{font-size:17px}.twofc-profile-dates{gap:6px}.twofc-profile-dates strong{font-size:9px}.twofc-balance-card{padding:12px 9px}.twofc-balance-card strong{font-size:18px}.twofc-history-btn{min-height:78px;padding:10px 8px;gap:8px}.twofc-history-btn .twofc-history-icon{width:42px;height:42px;flex-basis:42px;font-size:20px}.twofc-history-btn .twofc-history-title{font-size:14px}.twofc-history-btn .twofc-history-subtitle{font-size:11px}}
 </style>
 
 <style id="twofc-dynamic-category-notice-style">
@@ -1637,8 +1649,16 @@ body{padding-bottom:calc(88px + env(safe-area-inset-bottom,0px))!important}
   </div>
  </section>
  <section class="twofc-balance-grid">
-  <div class="twofc-balance-card"><span><i class="fa-solid fa-wallet"></i> CURRENT BALANCE</span><strong id="userBalance">0৳</strong><button type="button" class="twofc-history-btn" id="depositHistoryButton"><i class="fa-solid fa-receipt"></i> Deposit History</button></div>
-  <div class="twofc-balance-card"><span><i class="fa-solid fa-chart-line"></i> TOTAL EARNING</span><strong id="userEarnBalance">0৳</strong><button type="button" class="twofc-history-btn" id="withdrawHistoryButton"><i class="fa-solid fa-wallet"></i> Withdraw History</button></div>
+  <div class="twofc-balance-card"><span><i class="fa-solid fa-wallet"></i> CURRENT BALANCE</span><strong id="userBalance">0৳</strong></div>
+  <div class="twofc-balance-card"><span><i class="fa-solid fa-chart-line"></i> TOTAL EARNING</span><strong id="userEarnBalance">0৳</strong></div>
+  <button type="button" class="twofc-history-btn deposit-history" id="depositHistoryButton" aria-label="Deposit History">
+   <span class="twofc-history-icon"><i class="fa-solid fa-bookmark"></i></span>
+   <span class="twofc-history-copy"><span class="twofc-history-title">Deposit</span><span class="twofc-history-subtitle">My deposit history</span></span>
+  </button>
+  <button type="button" class="twofc-history-btn withdraw-history" id="withdrawHistoryButton" aria-label="Withdraw History">
+   <span class="twofc-history-icon"><i class="fa-solid fa-wallet"></i></span>
+   <span class="twofc-history-copy"><span class="twofc-history-title">Withdraw</span><span class="twofc-history-subtitle">My withdraw history</span></span>
+  </button>
  </section>
  <section class="twofc-profile-menu">
   <button type="button" onclick="navigatePage('addMoneyPage')"><span class="twofc-menu-icon"><i class="fa-solid fa-circle-plus"></i></span><span>Add Funds</span><i class="fa-solid fa-chevron-right"></i></button>
