@@ -1706,11 +1706,11 @@ body{padding-bottom:calc(88px + env(safe-area-inset-bottom,0px))!important}
    </section>
    <section class="withdraw-v2-limit">
     <div class="flex items-center gap-2 text-base font-extrabold"><i class="fa-solid fa-circle-info text-amber-300"></i><span>আজকের উইথড্র লিমিট</span></div>
-    <p id="withdrawDailyMessage" class="text-sm font-semibold text-white/90 mt-2">আজ আপনি আরও ৩ বার উইথড্র করতে পারবেন</p>
+    <p id="withdrawDailyMessage" class="text-sm font-semibold text-white/90 mt-2">আজ আপনি আরও ৪ বার উইথড্র করতে পারবেন</p>
     <div class="grid grid-cols-3 gap-2 mt-3">
-     <div class="withdraw-v2-count"><strong id="withdrawDailyRemaining">3</strong><span>বাকি</span></div>
+     <div class="withdraw-v2-count"><strong id="withdrawDailyRemaining">4</strong><span>বাকি</span></div>
      <div class="withdraw-v2-count"><strong id="withdrawDailyUsed">0</strong><span>ব্যবহৃত</span></div>
-     <div class="withdraw-v2-count"><strong>3</strong><span>প্রতিদিন</span></div>
+     <div class="withdraw-v2-count"><strong>4</strong><span>প্রতিদিন</span></div>
     </div>
     <p class="text-sm font-bold mt-3">সর্বনিম্ন উইথড্র: <span id="withdrawMinimumText">পেমেন্ট পদ্ধতি নির্বাচন করুন</span></p>
    </section>
@@ -1738,7 +1738,7 @@ body{padding-bottom:calc(88px + env(safe-area-inset-bottom,0px))!important}
     <p id="withdrawRangeText" class="text-xs text-slate-500">আপনার Earning Balance থেকে টাকা কাটা হবে।</p>
     <button type="button" class="withdraw-v2-submit" id="submitWithdrawButton" onclick="submitWithdrawalRequest()">Request Withdraw</button>
    </section>
-   <p class="text-[11px] leading-5 text-slate-500 px-1">প্রতিদিন সর্বোচ্চ ৩ বার Withdraw Request করা যাবে। Request জমা হলে Admin review করবেন।</p>
+   <p class="text-[11px] leading-5 text-slate-500 px-1">বাংলাদেশ সময় রাত ১২টা থেকে পরের রাত ১২টা পর্যন্ত সর্বোচ্চ ৪ বার Withdraw Request করা যাবে। Request জমা হলে Admin review করবেন।</p>
   </div>
   <button type="button" class="dark-btn" onclick="navigateMoneyHistoryBack('accountPage')">Back</button>
  </div>
@@ -2304,7 +2304,7 @@ function loadAdminDepositRequests(){
     }catch(e){box.innerHTML='<p class="text-xs text-rose-300 text-center">Unable to load requests</p>'}
 }
 
-function askOptionalMoneyReason(action){const value=window.prompt(action+' (Reason optional):','');if(value===null)return null;return String(value).trim();}
+function askOptionalMoneyReason(action){const value=window.prompt(action+' (Reason optional — blank or Cancel to continue without reason):','');return value===null?'':String(value).trim();}
 
 async function approveDeposit(id,email,amount,trx){
     const reason=askOptionalMoneyReason('Approve deposit');if(reason===null)return;
@@ -2685,7 +2685,7 @@ async function submitJoinMatchForm(){
 const WITHDRAW_METHOD_LABELS={bkash:'bKash',nagad:'Nagad',rocket:'Rocket',binance:'Binance'};
 const WITHDRAW_MINIMUMS={bkash:200,nagad:100,rocket:50,binance:1};
 let withdrawSavedMethods={},withdrawAvailableBalance=0,withdrawDailyCount=0,withdrawSelectedMethod='',withdrawDollarRate=0;
-function localDayKey(value){const d=value instanceof Date?value:new Date(value);return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')}
+function localDayKey(value){const d=value instanceof Date?value:new Date(value);const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Dhaka',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d);return parts.filter(p=>['year','month','day'].includes(p.type)).map(p=>p.value).join('-')}
 async function getTodayWithdrawals(){const snap=await window.getDocs(window.collection(window.db,'withdrawals'));const today=localDayKey(new Date()),rows=[];snap.forEach(ds=>{const d=ds.data()||{};if(String(d.userEmail||'').toLowerCase()===String(currentUserEmail||'').toLowerCase()&&localDayKey(d.createdAt||0)===today)rows.push(d)});return rows}
 async function loadWithdrawDollarRate(){
  try{const snap=await window.getDoc(window.doc(window.db,'siteSettings','withdrawalDollarRate'));const data=snap.exists()?(snap.data()||{}):{};withdrawDollarRate=Number(data.rate)||0;window.currentBinanceDollarRate=withdrawDollarRate;const rateText=document.getElementById('withdrawUsdRateText');if(rateText)rateText.textContent=withdrawDollarRate>0?'Admin rate: 1 USD = ৳'+withdrawDollarRate.toLocaleString('en-US'):'Admin has not set the USD rate';updateWithdrawDollarPreview();}
@@ -2724,8 +2724,8 @@ async function loadWithdrawPage(){
   const balance=document.getElementById('withdrawEarnBalance');if(balance)balance.textContent='BDT ৳'+withdrawAvailableBalance.toFixed(2);
   const rows=await getTodayWithdrawals(),today=localDayKey(new Date());
   const storedUsed=String(d.withdrawDailyUsageDate||'')===today?Number(d.withdrawDailyUsageCount)||0:0;
-  withdrawDailyCount=Math.min(3,Math.max(storedUsed,rows.length));
-  const remaining=Math.max(0,3-withdrawDailyCount),rem=document.getElementById('withdrawDailyRemaining'),used=document.getElementById('withdrawDailyUsed'),message=document.getElementById('withdrawDailyMessage');
+  withdrawDailyCount=Math.min(4,Math.max(storedUsed,rows.length));
+  const remaining=Math.max(0,4-withdrawDailyCount),rem=document.getElementById('withdrawDailyRemaining'),used=document.getElementById('withdrawDailyUsed'),message=document.getElementById('withdrawDailyMessage');
   if(rem)rem.textContent=String(remaining);if(used)used.textContent=String(withdrawDailyCount);
   if(message)message.textContent=remaining>0?'আজ আপনি আরও '+remaining+' বার উইথড্র করতে পারবেন':'আজকের ৩টি Withdraw সম্পন্ন হয়েছে';
   const min=document.getElementById('withdrawMinimumText');if(min)min.textContent=withdrawSelectedMethod?'৳'+WITHDRAW_MINIMUMS[withdrawSelectedMethod]:'পেমেন্ট পদ্ধতি নির্বাচন করুন';
@@ -2742,7 +2742,7 @@ async function submitWithdrawalRequest(){
  if(!Number.isFinite(amount)||amount<min||amount>5000){alert('সর্বনিম্ন Withdraw ৳'+min+' এবং সর্বোচ্চ ৳৫,০০০।');return;}
  if(!account){alert(method==='binance'?'আপনার Binance UID লিখুন।':'আপনার '+WITHDRAW_METHOD_LABELS[method]+' মোবাইল নাম্বার লিখুন।');return;}
  if(method!=='binance'&&!/^[0-9+\-\s]{8,20}$/.test(account)){alert('সঠিক মোবাইল নাম্বার লিখুন।');return;}
- if(withdrawDailyCount>=3){alert('প্রতিদিন সর্বোচ্চ ৩ বার Withdraw করা যাবে।');return;}
+ if(withdrawDailyCount>=4){alert('বাংলাদেশ সময় রাত ১২টা থেকে পরের রাত ১২টা পর্যন্ত সর্বোচ্চ ৪ বার Withdraw করা যাবে।');return;}
  if(method==='binance'){await loadWithdrawDollarRate();if(!(withdrawDollarRate>0)){alert('Admin এখনো ডলারের রেট সেট করেননি।');return;}}
  const btn=document.getElementById('submitWithdrawButton');if(btn){btn.disabled=true;btn.textContent='Submitting...';}
  try{
@@ -2752,7 +2752,7 @@ async function submitWithdrawalRequest(){
    const d=userSnap.data()||{},earn=Number(d.earnBalance||0),reserved=Number(d.reservedEarningBalance||0),available=Math.max(0,earn-reserved);
    if(available<amount)throw new Error('আপনার পর্যাপ্ত Earning Balance নেই।');
    const dailyStored=String(d.withdrawDailyUsageDate||'')===today?Number(d.withdrawDailyUsageCount)||0:0,dailyUsed=Math.max(dailyStored,todayRows.length);
-   if(dailyUsed>=3)throw new Error('আজকের ৩টি Withdraw Request শেষ হয়েছে।');
+   if(dailyUsed>=4)throw new Error('বাংলাদেশ সময় রাত ১২টা থেকে পরের রাত ১২টা পর্যন্ত ৪টি Withdraw Request শেষ হয়েছে।');
    const now=new Date(),email=String(d.immutableEmail||d.email||currentUserEmail).trim().toLowerCase(),rate=method==='binance'?withdrawDollarRate:0,usd=method==='binance'?Number((amount/rate).toFixed(8)):null;
    const orderBase='2FCWD'+String(now.getDate()).padStart(2,'0')+String(now.getMonth()+1).padStart(2,'0')+now.getFullYear()+String(Number(amount));
    const orderNumber=orderBase+'-'+now.getTime().toString().slice(-5);
@@ -2815,7 +2815,7 @@ async function loadDepositHistory(){
     }catch(e){box.innerHTML='<p class="text-center text-sm text-rose-300 py-6">Unable to load deposit history. Firebase permission বা connection পরীক্ষা করুন।</p>';}
 }
 
-async function loadWithdrawHistory(){const box=document.getElementById('withdrawHistoryCards');if(!box||!currentUserEmail)return;box.innerHTML='<p class="text-center text-sm text-slate-400 py-6">Loading...</p>';try{const snap=await window.getDocs(window.collection(window.db,'withdrawals')),rows=[];snap.forEach(ds=>{const d=ds.data()||{};if(String(d.userEmail||'').toLowerCase()===String(currentUserEmail).toLowerCase())rows.push({id:ds.id,...d})});rows.sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));if(!rows.length){box.innerHTML='<div class="withdraw-history-card text-center py-8 text-gray-400">No withdrawal history yet</div>';return}box.innerHTML=rows.map(d=>{const raw=String(d.status||'PENDING').toUpperCase(),status=raw==='APPROVED'||raw==='COMPLETED'?'COMPLETED':raw,cls=status==='COMPLETED'?'completed':status==='REJECTED'?'rejected':'pending',date=d.createdAt?(()=>{const x=new Date(d.createdAt);return Number.isNaN(x.getTime())?String(d.createdAt):`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')} ${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}:${String(x.getSeconds()).padStart(2,'0')}`})():'-',order=String(d.orderNumber||d.id);return `<article class="withdraw-history-card space-y-2"><div class="flex justify-between items-center border-b border-gray-100 pb-2"><strong class="rounded-md bg-rose-600 text-white px-3 py-1">Withdraw</strong><span class="withdraw-status ${cls}">${status}</span></div><div class="flex justify-between"><span>Balance</span><strong class="text-amber-600">৳${Number(d.amount||0).toFixed(2)}</strong></div><div class="flex justify-between"><span>Type</span><strong>${escapeHtml(d.methodName||WITHDRAW_METHOD_LABELS[d.method]||d.method||'-')}</strong></div><div class="flex justify-between"><span>Time</span><strong>${escapeHtml(date)}</strong></div>${status==='REJECTED'&&d.rejectionReason?`<div class=\"text-sm text-gray-600 border-t pt-2\"><strong>Remarks</strong><p>${escapeHtml(d.rejectionReason)}</p></div>`:''}<div class="money-history-order-row"><span class="shrink-0">Order number</span><div class="money-history-order-value"><span>${escapeHtml(order)}</span><button type="button" class="shrink-0 text-gray-500 p-1" data-order="${escapeHtml(order)}" onclick="copyMoneyHistoryOrder(this)" aria-label="Copy order number"><i class="fa-regular fa-copy"></i></button></div></div></article>`}).join('')}catch(e){box.innerHTML='<p class="text-center text-sm text-rose-300 py-6">Unable to load withdrawal history</p>'}}
+async function loadWithdrawHistory(){const box=document.getElementById('withdrawHistoryCards');if(!box||!currentUserEmail)return;box.innerHTML='<p class="text-center text-sm text-slate-400 py-6">Loading...</p>';try{const snap=await window.getDocs(window.collection(window.db,'withdrawals')),rows=[];snap.forEach(ds=>{const d=ds.data()||{};if(String(d.userEmail||'').toLowerCase()===String(currentUserEmail).toLowerCase())rows.push({id:ds.id,...d})});rows.sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));if(!rows.length){box.innerHTML='<div class="withdraw-history-card text-center py-8 text-gray-400">No withdrawal history yet</div>';return}box.innerHTML=rows.map(d=>{const raw=String(d.status||'PENDING').toUpperCase(),status=raw==='APPROVED'||raw==='COMPLETED'?'COMPLETED':raw,cls=status==='COMPLETED'?'completed':status==='REJECTED'?'rejected':'pending',date=d.createdAt?(()=>{const x=new Date(d.createdAt);return Number.isNaN(x.getTime())?String(d.createdAt):`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')} ${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}:${String(x.getSeconds()).padStart(2,'0')}`})():'-',order=String(d.orderNumber||d.id);return `<article class="withdraw-history-card space-y-2"><div class="flex justify-between items-center border-b border-gray-100 pb-2"><strong class="rounded-md bg-rose-600 text-white px-3 py-1">Withdraw</strong><span class="withdraw-status ${cls}">${status}</span></div><div class="flex justify-between"><span>Balance</span><strong class="text-amber-600">৳${Number(d.amount||0).toFixed(2)}</strong></div><div class="flex justify-between"><span>Type</span><strong>${escapeHtml(d.methodName||WITHDRAW_METHOD_LABELS[d.method]||d.method||'-')}</strong></div><div class="flex justify-between"><span>Time</span><strong>${escapeHtml(date)}</strong></div>${(d.rejectionReason||d.approvalReason)?`<div class=\"text-sm text-gray-600 border-t pt-2\"><strong>Remarks</strong><p>${escapeHtml(d.rejectionReason||d.approvalReason)}</p></div>`:''}<div class="money-history-order-row"><span class="shrink-0">Order number</span><div class="money-history-order-value"><span>${escapeHtml(order)}</span><button type="button" class="shrink-0 text-gray-500 p-1" data-order="${escapeHtml(order)}" onclick="copyMoneyHistoryOrder(this)" aria-label="Copy order number"><i class="fa-regular fa-copy"></i></button></div></div></article>`}).join('')}catch(e){box.innerHTML='<p class="text-center text-sm text-rose-300 py-6">Unable to load withdrawal history</p>'}}
 function copyWithdrawOrder(value){if(navigator.clipboard?.writeText){navigator.clipboard.writeText(value).then(()=>alert('Order number copied.')).catch(()=>fallbackCopyWithdrawOrder(value))}else fallbackCopyWithdrawOrder(value)}
 function fallbackCopyWithdrawOrder(value){const el=document.createElement('textarea');el.value=value;document.body.appendChild(el);el.select();try{document.execCommand('copy');alert('Order number copied.')}catch(e){alert(value)}el.remove()}
 async function adminAddUserBalance(){
