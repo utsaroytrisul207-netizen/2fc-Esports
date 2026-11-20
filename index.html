@@ -2291,17 +2291,68 @@ async function submitDepositRequest(){
 }
 
 let adminDepositUnsub=null;
+function moneyHistoryJsArg(value){return escapeHtml(JSON.stringify(String(value??'')));}
+
+async function adminDeleteDepositHistory(id,email,trx){
+    if(!id){alert('Invalid deposit history record.');return;}
+    if(!confirm('এই Deposit History স্থায়ীভাবে Delete করবেন? User-এর Deposit History থেকেও এটি মুছে যাবে।'))return;
+    try{
+        const depositRef=window.doc(window.db,'deposits',String(id));
+        const normalizedEmail=String(email||'').trim();
+        const userRef=normalizedEmail?window.doc(window.db,'users',normalizedEmail):null;
+        const normalizedTrx=String(trx||'').trim();
+        await window.runTransaction(window.db,async(tx)=>{
+            const depositSnap=await tx.get(depositRef);
+            if(!depositSnap.exists())throw new Error('এই Deposit record আগেই Delete করা হয়েছে।');
+            let userSnap=null;
+            if(userRef)userSnap=await tx.get(userRef);
+            tx.delete(depositRef);
+            if(userSnap&&userSnap.exists()&&normalizedTrx){
+                const userData=userSnap.data()||{};
+                const oldTransactions=Array.isArray(userData.transactions)?userData.transactions:[];
+                const nextTransactions=oldTransactions.filter(item=>String(item?.trxId||'').trim()!==normalizedTrx);
+                if(nextTransactions.length!==oldTransactions.length)tx.update(userRef,{transactions:nextTransactions});
+            }
+        });
+        alert('Deposit History সফলভাবে Delete হয়েছে।');
+        // Firestore onSnapshot automatically refreshes both Admin and User history.
+    }catch(error){
+        console.error('Deposit history delete failed:',error);
+        alert(error?.message||'Delete করা যায়নি। Firebase Rules/permission পরীক্ষা করুন।');
+    }
+}
+
+let adminDepositUnsub=null;
 function loadAdminDepositRequests(){
     const box=document.getElementById('adminDepositList');if(!box)return;
-    if(adminDepositUnsub)adminDepositUnsub();
+    if(adminDepositUnsub){adminDepositUnsub();adminDepositUnsub=null;}
     box.innerHTML='<p class="text-xs text-slate-400">Loading...</p>';
     try{
         adminDepositUnsub=window.onSnapshot(window.collection(window.db,'deposits'),snap=>{
-            box.innerHTML='';let count=0;
-            snap.forEach(ds=>{const d=ds.data();if(d.status!=='PENDING')return;count++;box.innerHTML+=`<div class="bg-[#0b2038] p-2.5 rounded border border-[#174262] text-xs space-y-1"><div class="flex justify-between text-white"><span>${escapeHtml(d.userName||d.userEmail)}</span><span class="text-amber-300 font-bold">${escapeHtml(d.amount)}৳ (${escapeHtml(d.method)})</span></div><p class="text-cyan-300 font-mono">Support PIN: ${escapeHtml(d.supportPin||'-')}</p><p class="text-slate-400">Gmail: ${escapeHtml(d.userEmail||'-')}</p><p class="text-slate-300 font-mono">TrxId: ${escapeHtml(d.trxId||'-')}</p><div class="flex gap-2 pt-1"><button onclick="approveDeposit('${ds.id}','${escapeHtml(d.userEmail||'')}',${Number(d.amount)||0},'${escapeHtml(d.trxId||'')}')" class="bg-emerald-600 text-white px-3 py-1 rounded font-bold text-[10px]">Approve</button><button onclick="rejectDeposit('${ds.id}','${escapeHtml(d.userEmail||'')}','${escapeHtml(d.trxId||'')}')" class="bg-rose-600 text-white px-3 py-1 rounded font-bold text-[10px]">Reject</button></div></div>`});
-            if(!count)box.innerHTML='<p class="text-xs text-slate-500 text-center">No pending requests</p>';
-        },()=>{box.innerHTML='<p class="text-xs text-rose-300 text-center">Unable to load requests</p>'});
-    }catch(e){box.innerHTML='<p class="text-xs text-rose-300 text-center">Unable to load requests</p>'}
+            const rows=[];
+            snap.forEach(ds=>rows.push({id:ds.id,...(ds.data()||{})}));
+            rows.sort((a,b)=>String(b.createdAt||b.date||'').localeCompare(String(a.createdAt||a.date||'')));
+            if(!rows.length){box.innerHTML='<p class="text-xs text-slate-500 text-center">No deposit records</p>';return;}
+            box.innerHTML=rows.map(d=>{
+                const raw=String(d.status||'PENDING').toUpperCase();
+                const status=raw==='APPROVED'||raw==='COMPLETED'?'Complete':raw==='REJECTED'?'Rejected':'Pending';
+                const statusClass=status==='Complete'?'text-emerald-300':status==='Rejected'?'text-rose-300':'text-amber-300';
+                const isBinance=String(d.method||'').toLowerCase()==='binance';
+                const bdt=Number(d.amountBdt??d.amount??0);
+                const amountLine=isBinance?`$${Number(d.usdAmount||0).toFixed(8)} USD · ৳${bdt.toFixed(2)} BDT`:`৳${bdt.toFixed(2)}`;
+                const time=formatMoneyHistoryTime(d.createdAt||d.date),order=d.orderNumber||d.id,methodLabel=moneyMethodLabel(d.method);
+                const idArg=moneyHistoryJsArg(d.id),emailArg=moneyHistoryJsArg(d.userEmail||''),trxArg=moneyHistoryJsArg(d.trxId||'');
+                const actions=`<div class="flex flex-wrap gap-2 pt-2">${raw==='PENDING'?`<button type="button" onclick="approveDeposit(${idArg},${emailArg},${Number(d.amount)||0},${trxArg})" class="bg-emerald-600 text-white px-3 py-1 rounded font-bold text-[10px]">Approve</button><button type="button" onclick="rejectDeposit(${idArg},${emailArg},${trxArg})" class="bg-rose-600 text-white px-3 py-1 rounded font-bold text-[10px]">Reject</button>`:''}<button type="button" onclick="adminDeleteDepositHistory(${idArg},${emailArg},${trxArg})" class="bg-red-700 text-white px-3 py-1 rounded font-bold text-[10px]">Delete History</button></div>`;
+                return `<article class="bg-[#0b2038] p-3 rounded-xl border border-[#174262] text-xs space-y-1.5"><div class="flex justify-between items-center gap-2"><strong class="text-white">${escapeHtml(d.userName||d.userEmail||'-')}</strong><strong class="${statusClass}">${status}</strong></div><p class="text-amber-300 font-bold">Order amount: ${amountLine}</p><p class="text-slate-300">Type: ${escapeHtml(methodLabel)}</p><p class="text-slate-400">Time: ${escapeHtml(time)}</p><p class="text-slate-400">Gmail: ${escapeHtml(d.userEmail||'-')}</p><p class="text-slate-300 font-mono break-all flex items-center gap-2">Order number: <span>${escapeHtml(order)}</span><button type="button" class="text-cyan-300" data-order="${escapeHtml(order)}" onclick="copyAdminMoneyOrder(this)" aria-label="Copy order number"><i class="fa-regular fa-copy"></i></button></p><p class="text-slate-300 font-mono break-all">Transaction ID: ${escapeHtml(d.trxId||'-')}</p>${isBinance?`<p class="text-slate-400">Rate: 1 USD = ৳${Number(d.dollarRateAtRequest||0).toFixed(2)}</p>`:''}${(d.rejectionReason||d.approvalReason)?`<p class="text-slate-300"><strong>Remarks:</strong> ${escapeHtml(d.rejectionReason||d.approvalReason)}</p>`:''}${actions}</article>`;
+            }).join('');
+        },error=>{
+            console.error('Admin deposit history listener failed:',error);
+            box.innerHTML='<p class="text-xs text-rose-300 text-center">Unable to load deposit history. Firebase permission পরীক্ষা করুন।</p>';
+        });
+    }catch(error){
+        console.error('Admin deposit history load failed:',error);
+        box.innerHTML='<p class="text-xs text-rose-300 text-center">Unable to load deposit history</p>';
+    }
 }
 
 function askOptionalMoneyReason(action){const value=window.prompt(action+' (Reason optional — blank or Cancel to continue without reason):','');return value===null?'':String(value).trim();}
@@ -2798,9 +2849,7 @@ function loadDepositHistory(){
             const rows=[];
             snap.forEach(ds=>{
                 const d=ds.data()||{};
-                const recordEmail=String(d.userEmail||'').trim().toLowerCase();
-                const activeEmail=String(currentUserEmail||'').trim().toLowerCase();
-                if(recordEmail&&activeEmail&&recordEmail===activeEmail)rows.push({id:ds.id,...d});
+                if(String(d.userEmail||'').trim().toLowerCase()===String(currentUserEmail||'').trim().toLowerCase())rows.push({id:ds.id,...d});
             });
             rows.sort((a,b)=>String(b.createdAt||b.date||'').localeCompare(String(a.createdAt||a.date||'')));
             if(!rows.length){box.innerHTML='<div class="withdraw-history-card text-center py-8 text-gray-400">No deposit history yet</div>';return;}
@@ -2824,7 +2873,8 @@ function loadDepositHistory(){
 }
 
 async function loadWithdrawHistory(){const box=document.getElementById('withdrawHistoryCards');if(!box||!currentUserEmail)return;box.innerHTML='<p class="text-center text-sm text-slate-400 py-6">Loading...</p>';try{const snap=await window.getDocs(window.collection(window.db,'withdrawals')),rows=[];snap.forEach(ds=>{const d=ds.data()||{};if(String(d.userEmail||'').toLowerCase()===String(currentUserEmail).toLowerCase())rows.push({id:ds.id,...d})});rows.sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));if(!rows.length){box.innerHTML='<div class="withdraw-history-card text-center py-8 text-gray-400">No withdrawal history yet</div>';return}box.innerHTML=rows.map(d=>{const raw=String(d.status||'PENDING').toUpperCase(),status=raw==='APPROVED'||raw==='COMPLETED'?'COMPLETED':raw,cls=status==='COMPLETED'?'completed':status==='REJECTED'?'rejected':'pending',date=d.createdAt?(()=>{const x=new Date(d.createdAt);return Number.isNaN(x.getTime())?String(d.createdAt):`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')} ${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}:${String(x.getSeconds()).padStart(2,'0')}`})():'-',order=String(d.orderNumber||d.id);return `<article class="withdraw-history-card space-y-2"><div class="flex justify-between items-center border-b border-gray-100 pb-2"><strong class="rounded-md bg-rose-600 text-white px-3 py-1">Withdraw</strong><span class="withdraw-status ${cls}">${status}</span></div><div class="flex justify-between"><span>Balance</span><strong class="text-amber-600">৳${Number(d.amount||0).toFixed(2)}</strong></div><div class="flex justify-between"><span>Type</span><strong>${escapeHtml(d.methodName||WITHDRAW_METHOD_LABELS[d.method]||d.method||'-')}</strong></div><div class="flex justify-between"><span>Time</span><strong>${escapeHtml(date)}</strong></div><div class="money-history-order-row"><span class="shrink-0">Order number</span><div class="money-history-order-value"><span>${escapeHtml(order)}</span><button type="button" class="shrink-0 text-gray-500 p-1" data-order="${escapeHtml(order)}" onclick="copyMoneyHistoryOrder(this)" aria-label="Copy order number"><i class="fa-regular fa-copy"></i></button></div></div>${(d.rejectionReason||d.approvalReason)?`<div class=\"text-sm text-gray-600 border-t pt-2\"><strong>Remarks</strong><p>${escapeHtml(d.rejectionReason||d.approvalReason)}</p></div>`:''}</article>`}).join('')}catch(e){box.innerHTML='<p class="text-center text-sm text-rose-300 py-6">Unable to load withdrawal history</p>'}}
-
+function copyWithdrawOrder(value){if(navigator.clipboard?.writeText){navigator.clipboard.writeText(value).then(()=>alert('Order number copied.')).catch(()=>fallbackCopyWithdrawOrder(value))}else fallbackCopyWithdrawOrder(value)}
+function fallbackCopyWithdrawOrder(value){const el=document.createElement('textarea');el.value=value;document.body.appendChild(el);el.select();try{document.execCommand('copy');alert('Order number copied.')}catch(e){alert(value)}el.remove()}
 async function adminAddUserBalance(){
     const pin=document.getElementById('adminBalanceSupportPin').value.trim();
     const amount=Number(document.getElementById('adminUserBalanceAmount').value);
