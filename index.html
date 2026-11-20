@@ -3234,11 +3234,22 @@ if ('serviceWorker' in navigator) {
     document.body.appendChild(overlay);
     document.getElementById('twofcExitCancel').addEventListener('click',function(){overlay.remove();writeState([visiblePage()],true);writeState([visiblePage()],false)});
     document.getElementById('twofcExitConfirm').addEventListener('click',function(){
-      overlay.remove();
-      /* WebViews that expose a native bridge can close the app through their wrapper. */
-      try{if(window.Android&&typeof window.Android.exitApp==='function'){window.Android.exitApp();return}}catch(e){}
-      try{window.close()}catch(e){}
-      try{history.go(-history.length)}catch(e){}
+      /* Close the native Android app when the hosting WebView provides an exit bridge. */
+      try{
+        if(window.Android&&typeof window.Android.exitApp==='function'){
+          window.Android.exitApp();
+          return;
+        }
+      }catch(e){console.warn('Native app exit bridge unavailable:',e)}
+
+      /* Browsers block window.close() for tabs that were not opened by script.
+         Leave this website instead, using a same-tab navigation as the fallback. */
+      try{
+        window.location.replace('about:blank');
+      }catch(e){
+        /* Last-resort fallback for restricted WebViews. */
+        try{window.location.href='about:blank'}catch(_e){}
+      }
     });
   }
   var originalNavigate=window.navigatePage;
