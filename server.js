@@ -384,150 +384,111 @@ app.post('/api/push/send', async (req, res) => {
     if (
       !title ||
       !body ||
-      !supportPins.length ||
       supportPins.length > 100 ||
-      !recipients.length ||
-      recipients.length > 100 ||
+      recipients.length > 500 ||
       !validHttpUrl(targetUrl)
     ) {
       return res.status(400).json({
         ok: false,
-        message: 'Invalid push notification details or Support PIN.'
+        message: 'Invalid push notification details.'
       });
     }
 
-    // Find users matching the supplied Support PINs.
+    // Find users matching supplied Support PINs.
+    // Empty PIN means use the recipient list supplied by Admin Panel.
+
     const matchedUsers = new Map();
 
-    for (const pin of supportPins) {
-      const [supportPinSnap, immutablePinSnap] = await Promise.all([
-        db.collection('users')
-          .where('supportPin', '==', pin)
-          .get(),
+    if (supportPins.length) {
+      for (const pin of supportPins) {
+        const [supportPinSnap, immutablePinSnap] = await Promise.all([
+          db.collection('users')
+            .where('supportPin', '==', pin)
+            .get(),
 
-        db.collection('users')
-          .where('immutableSupportPin', '==', pin)
-          .get()
-      ]);
+          db.collection('users')
+            .where('immutableSupportPin', '==', pin)
+            .get()
+        ]);
 
-      for (const snap of supportPinSnap.docs) {
-        matchedUsers.set(snap.id, snap);
-      }
+        for (const snap of supportPinSnap.docs) {
+          matchedUsers.set(snap.id, snap);
+        }
 
-      for (const snap of immutablePinSnap.docs) {
-        matchedUsers.set(snap.id, snap);
+        for (const snap of immutablePinSnap.docs) {
+          matchedUsers.set(snap.id, snap);
+        }
       }
     }
 
-    if (!matchedUsers.size) {
-      return res.status(404).json({
-        ok: false,
-        message: 'No users found for the supplied Support PIN.'
-      });
-    }
-
-    // Build the requested recipient list.
-    const requestedRecipients = new Map();
+    const uniqueRecipients = new Map();
 
     for (const item of recipients) {
       const email = normalizeEmail(item?.email);
       const notificationId = String(item?.notificationId || '').trim();
 
       if (email && notificationId) {
-        requestedRecipients.set(email, notificationId);
+        uniqueRecipients.set(email, notificationId);
       }
     }
 
-    if (!requestedRecipients.size) {
+    if (!uniqueRecipients.size) {
       return res.status(400).json({
         ok: false,
         message: 'No valid notification recipients were supplied.'
       });
     }
 
-    // Every requested recipient must match one of the supplied PINs.
-    const matchedRecipientRows = [];
+    const recipientRows = [...uniqueRecipients.entries()];
 
-    for (const [email, notificationId] of requestedRecipients.entries()) {
-      const userSnap = matchedUsers.get(email);
+    const userDocs = await Promise.all(
+      recipientRows.map(([email]) =>
+        db.collection('users').doc(email).get()
+      )
+    );
 
-      if (!userSnap || !userSnap.exists) {
-        return res.status(403).json({
-          ok: false,
-          message: 'A recipient does not match the supplied Support PINs.'
-        });
-      }
-
-      const userData = userSnap.data() || {};
-
-      const userPins = [
-        String(userData.supportPin || '').trim(),
-        String(userData.immutableSupportPin || '').trim()
-      ].filter(Boolean);
-
-      const pinMatches = userPins.some(pin => supportPins.includes(pin));
-
-      if (!pinMatches) {
-        return res.status(403).json({
-          ok: false,
-          message: 'Support PIN verification failed for a recipient.'
-        });
-      }
-
-      matchedRecipientRows.push({
-        email,
-        notificationId,
-        userSnap
-      });
-    }
-
-    // Ensure every matched PIN user has a corresponding notification record.
     const messages = [];
     const tokenRefs = [];
 
-    for (const row of matchedRecipientRows) {
+    for (let index = 0; index < userDocs.length; index++) {
+      const snap = userDocs[index];
+
+      const [email, notificationId] = recipientRows[index];
+
+      if (!snap.exists) continue;
+
+      const userData = snap.data() || {};
+
+      // If PINs were supplied, only send to users matching those PINs.
+      if (supportPins.length) {
+        const matched = matchedUsers.get(snap.id);
+
+        if (!matched) continue;
+
+        const userPins = [
+          String(userData.supportPin || '').trim(),
+          String(userData.immutableSupportPin || '').trim()
+        ].filter(Boolean);
+
+        if (!userPins.some(pin => supportPins.includes(pin))) {
+          continue;
+        }
+      }
+
+      // Verify saved in-app notification belongs to this user.
       const notificationSnap = await db
         .collection('userNotifications')
-        .doc(row.notificationId)
+        .doc(notificationId)
         .get();
 
-      if (!notificationSnap.exists) {
-        return res.status(400).json({
-          ok: false,
-          message: 'A saved in-app notification record was not found.'
-        });
-      }
+      if (!notificationSnap.exists) continue;
 
       const notificationData = notificationSnap.data() || {};
 
       if (
-        normalizeEmail(notificationData.recipientEmail) !== row.email
+        normalizeEmail(notificationData.recipientEmail) !== email
       ) {
-        return res.status(403).json({
-          ok: false,
-          message: 'Notification recipient verification failed.'
-        });
-      }
-
-      const notificationPin = String(
-        notificationData.recipientSupportPin || ''
-      ).trim();
-
-      const userData = row.userSnap.data() || {};
-
-      const userPins = [
-        String(userData.supportPin || '').trim(),
-        String(userData.immutableSupportPin || '').trim()
-      ].filter(Boolean);
-
-      if (
-        notificationPin &&
-        !userPins.includes(notificationPin)
-      ) {
-        return res.status(403).json({
-          ok: false,
-          message: 'Saved notification Support PIN does not match.'
-        });
+        continue;
       }
 
       const token = String(userData.fcmToken || '').trim();
@@ -535,7 +496,7 @@ app.post('/api/push/send', async (req, res) => {
       if (!token) continue;
 
       const notificationUrl = targetUrl ||
-        '/?notificationId=' + encodeURIComponent(row.notificationId);
+        '/?notificationId=' + encodeURIComponent(notificationId);
 
       messages.push({
         token,
@@ -545,7 +506,7 @@ app.post('/api/push/send', async (req, res) => {
           body,
           url: notificationUrl,
           targetUrl: targetUrl || '',
-          notificationId: row.notificationId,
+          notificationId,
           notificationType: '2fc-user-notification'
         },
 
@@ -557,14 +518,14 @@ app.post('/api/push/send', async (req, res) => {
         }
       });
 
-      tokenRefs.push(row.userSnap.ref);
+      tokenRefs.push(snap.ref);
     }
 
     if (!messages.length) {
       return res.json({
         ok: true,
         sent: 0,
-        noDevice: matchedRecipientRows.length,
+        noDevice: recipientRows.length,
         message: 'No enabled devices found for the selected users.'
       });
     }
@@ -591,6 +552,11 @@ app.post('/api/push/send', async (req, res) => {
       } else {
         failed += 1;
 
+        console.error(
+          'Push delivery error:',
+          result.reason?.code || result.reason?.message
+        );
+
         if (invalidCodes.has(result.reason?.code)) {
           cleanup.push(
             tokenRefs[index].update({
@@ -610,7 +576,7 @@ app.post('/api/push/send', async (req, res) => {
       ok: true,
       sent,
       failed,
-      noDevice: matchedRecipientRows.length - messages.length
+      noDevice: recipientRows.length - messages.length
     });
 
   } catch (error) {
