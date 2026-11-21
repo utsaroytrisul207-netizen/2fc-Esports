@@ -10,41 +10,26 @@ const PORT = Number(process.env.PORT || 3000);
 // ===============================
 // 2FC E-SPORTS OTP SECURITY
 // ===============================
-
 const OTP_TTL_MS = 5 * 60_000;
 const RESEND_COOLDOWN_MS = 60_000;
 const RESET_SESSION_TTL_MS = 10 * 60_000;
 const MAX_OTP_ATTEMPTS = 5;
-
 const REQUEST_WINDOW_MS = 10 * 60_000;
 const MAX_REQUESTS_PER_WINDOW = 10;
 
 // ===============================
 // HELPERS
 // ===============================
-
 function required(name) {
   const value = process.env[name];
-
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
   return value;
 }
 
 function parseAllowedOrigins() {
-  const raw =
-    process.env.ALLOWED_ORIGINS ||
-    process.env.ALLOWED_ORIGIN ||
-    '*';
-
+  const raw = process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || '*';
   if (raw === '*') return true;
-
-  return raw
-    .split(',')
-    .map(value => value.trim())
-    .filter(Boolean);
+  return raw.split(',').map(value => value.trim()).filter(Boolean);
 }
 
 function normalizeEmail(value) {
@@ -65,12 +50,9 @@ function hash(value) {
 
 function safeEqual(a, b) {
   if (!a || !b) return false;
-
   const aa = Buffer.from(String(a), 'utf8');
   const bb = Buffer.from(String(b), 'utf8');
-
   if (aa.length !== bb.length) return false;
-
   return crypto.timingSafeEqual(aa, bb);
 }
 
@@ -83,17 +65,12 @@ function now() {
 }
 
 function parseSupportPins(value) {
-  return [...new Set(
-    String(value || '')
-      .split(',')
-      .map(pin => pin.trim())
-      .filter(Boolean)
-  )];
+  const values = Array.isArray(value) ? value : String(value || '').split(',');
+  return [...new Set(values.map(pin => String(pin).trim()).filter(Boolean))];
 }
 
 function validHttpUrl(value) {
   if (!value) return true;
-
   try {
     const parsed = new URL(value);
     return parsed.protocol === 'http:' || parsed.protocol === 'https:';
@@ -105,7 +82,6 @@ function validHttpUrl(value) {
 // ===============================
 // EXPRESS SECURITY
 // ===============================
-
 app.disable('x-powered-by');
 
 app.use(cors({
@@ -115,28 +91,20 @@ app.use(cors({
   maxAge: 86400
 }));
 
-app.use(express.json({
-  limit: '20kb'
-}));
+app.use(express.json({ limit: '20kb' }));
 
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Cache-Control', 'no-store');
-
-  res.setHeader(
-    'Permissions-Policy',
-    'camera=(), microphone=(), geolocation=()'
-  );
-
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   next();
 });
 
 // ===============================
 // FIREBASE ADMIN
 // ===============================
-
 if (!admin.apps.length) {
   const serviceAccountJson =
     process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
@@ -153,9 +121,7 @@ if (!admin.apps.length) {
   try {
     serviceAccount = JSON.parse(serviceAccountJson);
   } catch {
-    throw new Error(
-      'Firebase service account environment variable is not valid JSON.'
-    );
+    throw new Error('Firebase service account environment variable is not valid JSON.');
   }
 
   admin.initializeApp({
@@ -169,28 +135,21 @@ const auth = admin.auth();
 // ===============================
 // RESEND EMAIL API
 // ===============================
-
 const resendApiKey = required('RESEND_API_KEY');
 const resendFrom = required('RESEND_FROM');
 
 // ===============================
 // MEMORY STORES
 // ===============================
-
 const otpStore = new Map();
 const requestRateStore = new Map();
 
 // ===============================
 // RATE LIMIT
 // ===============================
-
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
-
-  if (forwarded) {
-    return String(forwarded).split(',')[0].trim();
-  }
-
+  if (forwarded) return String(forwarded).split(',')[0].trim();
   return req.ip || 'unknown';
 }
 
@@ -200,14 +159,8 @@ function checkRequestRate(req) {
 
   let record = requestRateStore.get(ip);
 
-  if (
-    !record ||
-    current - record.startedAt >= REQUEST_WINDOW_MS
-  ) {
-    record = {
-      startedAt: current,
-      count: 0
-    };
+  if (!record || current - record.startedAt >= REQUEST_WINDOW_MS) {
+    record = { startedAt: current, count: 0 };
   }
 
   record.count += 1;
@@ -219,7 +172,6 @@ function checkRequestRate(req) {
 // ===============================
 // CLEANUP
 // ===============================
-
 function cleanupExpired() {
   const currentTime = now();
 
@@ -238,9 +190,7 @@ function cleanupExpired() {
   }
 
   for (const [ip, record] of requestRateStore) {
-    if (
-      currentTime - record.startedAt >= REQUEST_WINDOW_MS
-    ) {
+    if (currentTime - record.startedAt >= REQUEST_WINDOW_MS) {
       requestRateStore.delete(ip);
     }
   }
@@ -251,68 +201,42 @@ setInterval(cleanupExpired, 60_000).unref();
 // ===============================
 // SEND OTP EMAIL THROUGH RESEND
 // ===============================
-
 async function sendOtpEmail(email, otp) {
-  const response = await fetch(
-    'https://api.resend.com/emails',
-    {
-      method: 'POST',
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from: resendFrom,
+      to: [email],
+      subject: '2FC E-SPORTS — Password Reset OTP',
 
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json'
-      },
+      text:
+        `Your 2FC E-SPORTS password reset OTP is ${otp}.\n\n` +
+        `This OTP is valid for 5 minutes.\n` +
+        `After 5 wrong attempts, the OTP becomes invalid.\n\n` +
+        `If you did not request this password reset, you can ignore this email.`,
 
-      body: JSON.stringify({
-        from: resendFrom,
-        to: [email],
-
-        subject: '2FC E-SPORTS — Password Reset OTP',
-
-        text:
-          `Your 2FC E-SPORTS password reset OTP is ${otp}.\n\n` +
-          `This OTP is valid for 5 minutes.\n` +
-          `After 5 wrong attempts, the OTP becomes invalid.\n\n` +
-          `If you did not request this password reset, you can ignore this email.`,
-
-        html: `
-          <div style="
-            font-family:Arial,sans-serif;
-            line-height:1.5;
-            max-width:600px;
-            margin:auto;
-            padding:20px;
-          ">
-            <h2>2FC E-SPORTS — Password Reset</h2>
-            <p>Your 6-digit password reset OTP is:</p>
-            <div style="
-              font-size:32px;
-              font-weight:800;
-              letter-spacing:8px;
-              margin:20px 0;
-            ">${otp}</div>
-            <p>This OTP is valid for <b>5 minutes</b>.</p>
-            <p>After 5 wrong attempts, the current OTP becomes invalid.</p>
-            <p>If you did not request this password reset, you can safely ignore this email.</p>
-            <hr>
-            <p style="font-size:12px;color:#777">
-              2FC E-SPORTS Security System
-            </p>
-          </div>
-        `
-      })
-    }
-  );
+      html: `
+        <div style="font-family:Arial,sans-serif;line-height:1.5;max-width:600px;margin:auto;padding:20px">
+          <h2>2FC E-SPORTS — Password Reset</h2>
+          <p>Your 6-digit password reset OTP is:</p>
+          <div style="font-size:32px;font-weight:800;letter-spacing:8px;margin:20px 0">${otp}</div>
+          <p>This OTP is valid for <b>5 minutes</b>.</p>
+          <p>After 5 wrong attempts, the current OTP becomes invalid.</p>
+          <p>If you did not request this password reset, you can safely ignore this email.</p>
+          <hr>
+          <p style="font-size:12px;color:#777">2FC E-SPORTS Security System</p>
+        </div>`
+    })
+  });
 
   const result = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    console.error(
-      'Resend API error:',
-      response.status,
-      result
-    );
-
+    console.error('Resend API error:', response.status, result);
     throw new Error(
       result?.message ||
       `Resend API request failed with status ${response.status}`
@@ -323,7 +247,6 @@ async function sendOtpEmail(email, otp) {
 // ===============================
 // HEALTH CHECK
 // ===============================
-
 app.get('/health', (req, res) => {
   res.json({
     ok: true,
@@ -333,10 +256,25 @@ app.get('/health', (req, res) => {
 
 // ===============================
 // FIREBASE CLOUD MESSAGING PUSH SENDER
-// SUPPORT PIN: MULTIPLE USERS
+// Blank PIN = recipients selected by Admin Panel
+// PIN = only matching recipients
 // ===============================
-
 app.post('/api/push/send', async (req, res) => {
+
+  // DEBUG: PUSH REQUEST
+  console.log('[PUSH] Request received:', {
+    time: new Date().toISOString(),
+    recipientCount: Array.isArray(req.body?.recipients)
+      ? req.body.recipients.length
+      : 0,
+    hasTitle: !!req.body?.title,
+    hasMessage: !!req.body?.message,
+    hasSupportPin: !!(
+      req.body?.supportPin ||
+      req.body?.supportPins
+    )
+  });
+
   try {
     const authHeader = String(req.headers.authorization || '');
 
@@ -345,6 +283,8 @@ app.post('/api/push/send', async (req, res) => {
       : '';
 
     if (!idToken) {
+      console.warn('[PUSH] Rejected: Admin authentication missing.');
+
       return res.status(401).json({
         ok: false,
         message: 'Admin authentication required.'
@@ -353,12 +293,16 @@ app.post('/api/push/send', async (req, res) => {
 
     const decoded = await auth.verifyIdToken(idToken);
 
+    console.log('[PUSH] Admin token verified:', decoded.uid);
+
     const adminSnap = await db
       .collection('admins')
       .doc(decoded.uid)
       .get();
 
     if (!adminSnap.exists || adminSnap.data()?.active !== true) {
+      console.warn('[PUSH] Rejected: admin is missing or inactive.');
+
       return res.status(403).json({
         ok: false,
         message: 'Active admin access required.'
@@ -369,144 +313,176 @@ app.post('/api/push/send', async (req, res) => {
       .trim()
       .slice(0, 100);
 
-    const body = String(req.body?.message || '')
+    const messageBody = String(req.body?.message || '')
       .trim()
       .slice(0, 1500);
-
-    const supportPins = parseSupportPins(req.body?.supportPin);
 
     const recipients = Array.isArray(req.body?.recipients)
       ? req.body.recipients
       : [];
 
+    const supportPins = parseSupportPins(
+      req.body?.supportPin ?? req.body?.supportPins
+    );
+
     const targetUrl = String(req.body?.targetUrl || '').trim();
 
     if (
       !title ||
-      !body ||
-      supportPins.length > 100 ||
+      !messageBody ||
+      !recipients.length ||
       recipients.length > 500 ||
+      supportPins.length > 100 ||
       !validHttpUrl(targetUrl)
     ) {
+      console.warn('[PUSH] Rejected: invalid notification details.');
+
       return res.status(400).json({
         ok: false,
         message: 'Invalid push notification details.'
       });
     }
 
-    // Find users matching supplied Support PINs.
-    // Empty PIN means use the recipient list supplied by Admin Panel.
-
-    const matchedUsers = new Map();
-
-    if (supportPins.length) {
-      for (const pin of supportPins) {
-        const [supportPinSnap, immutablePinSnap] = await Promise.all([
-          db.collection('users')
-            .where('supportPin', '==', pin)
-            .get(),
-
-          db.collection('users')
-            .where('immutableSupportPin', '==', pin)
-            .get()
-        ]);
-
-        for (const snap of supportPinSnap.docs) {
-          matchedUsers.set(snap.id, snap);
-        }
-
-        for (const snap of immutablePinSnap.docs) {
-          matchedUsers.set(snap.id, snap);
-        }
-      }
-    }
-
-    const uniqueRecipients = new Map();
+    // Deduplicate recipient email + notification ID pairs.
+    const recipientMap = new Map();
 
     for (const item of recipients) {
       const email = normalizeEmail(item?.email);
       const notificationId = String(item?.notificationId || '').trim();
 
       if (email && notificationId) {
-        uniqueRecipients.set(email, notificationId);
+        recipientMap.set(email, notificationId);
       }
     }
 
-    if (!uniqueRecipients.size) {
+    if (!recipientMap.size) {
+      console.warn('[PUSH] Rejected: no valid recipient records.');
+
       return res.status(400).json({
         ok: false,
         message: 'No valid notification recipients were supplied.'
       });
     }
 
-    const recipientRows = [...uniqueRecipients.entries()];
+    // Load only requested user documents.
+    const recipientRows = [...recipientMap.entries()];
 
-    const userDocs = await Promise.all(
+    const userSnaps = await Promise.all(
       recipientRows.map(([email]) =>
         db.collection('users').doc(email).get()
       )
     );
 
-    const messages = [];
-    const tokenRefs = [];
+    const selectedUsers = [];
 
-    for (let index = 0; index < userDocs.length; index++) {
-      const snap = userDocs[index];
+    for (let i = 0; i < recipientRows.length; i += 1) {
+      const [email, notificationId] = recipientRows[i];
+      const userSnap = userSnaps[i];
 
-      const [email, notificationId] = recipientRows[index];
+      if (!userSnap.exists) continue;
 
-      if (!snap.exists) continue;
-
-      const userData = snap.data() || {};
-
-      // If PINs were supplied, only send to users matching those PINs.
+      // Check Support PIN if supplied.
       if (supportPins.length) {
-        const matched = matchedUsers.get(snap.id);
-
-        if (!matched) continue;
+        const userData = userSnap.data() || {};
 
         const userPins = [
-          String(userData.supportPin || '').trim(),
-          String(userData.immutableSupportPin || '').trim()
-        ].filter(Boolean);
+          userData.supportPin,
+          userData.immutableSupportPin
+        ]
+          .map(value => String(value || '').trim())
+          .filter(Boolean);
 
         if (!userPins.some(pin => supportPins.includes(pin))) {
           continue;
         }
       }
 
-      // Verify saved in-app notification belongs to this user.
+      selectedUsers.push({
+        email,
+        notificationId,
+        userSnap
+      });
+    }
+
+    console.log('[PUSH] Recipient selection:', {
+      requested: recipientRows.length,
+      selected: selectedUsers.length,
+      supportPinFilter: supportPins.length > 0
+    });
+
+    if (!selectedUsers.length) {
+      console.warn('[PUSH] No matching registered recipients.');
+
+      return res.status(404).json({
+        ok: false,
+        message: supportPins.length
+          ? 'No recipients matched the supplied Support PIN(s).'
+          : 'No registered recipient accounts were found.'
+      });
+    }
+
+    const messages = [];
+    const tokenRefs = [];
+
+    let invalidNotificationRecords = 0;
+
+    for (const row of selectedUsers) {
       const notificationSnap = await db
         .collection('userNotifications')
-        .doc(notificationId)
+        .doc(row.notificationId)
         .get();
 
-      if (!notificationSnap.exists) continue;
+      if (!notificationSnap.exists) {
+        invalidNotificationRecords += 1;
+        continue;
+      }
 
       const notificationData = notificationSnap.data() || {};
 
       if (
-        normalizeEmail(notificationData.recipientEmail) !== email
+        normalizeEmail(notificationData.recipientEmail) !== row.email
       ) {
+        invalidNotificationRecords += 1;
         continue;
+      }
+
+      const userData = row.userSnap.data() || {};
+
+      if (supportPins.length) {
+        const savedPin = String(
+          notificationData.recipientSupportPin || ''
+        ).trim();
+
+        const actualPins = [
+          userData.supportPin,
+          userData.immutableSupportPin
+        ]
+          .map(value => String(value || '').trim())
+          .filter(Boolean);
+
+        if (savedPin && !actualPins.includes(savedPin)) {
+          invalidNotificationRecords += 1;
+          continue;
+        }
       }
 
       const token = String(userData.fcmToken || '').trim();
 
       if (!token) continue;
 
-      const notificationUrl = targetUrl ||
-        '/?notificationId=' + encodeURIComponent(notificationId);
+      const fallbackUrl =
+        '/?notificationId=' +
+        encodeURIComponent(row.notificationId);
 
       messages.push({
         token,
 
         data: {
           title,
-          body,
-          url: notificationUrl,
+          body: messageBody,
+          url: targetUrl || fallbackUrl,
           targetUrl: targetUrl || '',
-          notificationId,
+          notificationId: row.notificationId,
           notificationType: '2fc-user-notification'
         },
 
@@ -518,23 +494,44 @@ app.post('/api/push/send', async (req, res) => {
         }
       });
 
-      tokenRefs.push(snap.ref);
+      tokenRefs.push(row.userSnap.ref);
     }
 
+    // DEBUG: TOKEN CHECK
+    console.log('[PUSH] Prepared messages:', {
+      selectedUsers: selectedUsers.length,
+      messagesWithFcmToken: messages.length,
+      invalidNotificationRecords
+    });
+
     if (!messages.length) {
+      console.warn('[PUSH] No FCM tokens available for selected users.');
+
       return res.json({
         ok: true,
         sent: 0,
-        noDevice: recipientRows.length,
+        failed: 0,
+        noDevice: selectedUsers.length,
+        invalidRecords: invalidNotificationRecords,
         message: 'No enabled devices found for the selected users.'
       });
     }
 
+    // SEND TO FIREBASE
     const results = await Promise.allSettled(
-      messages.map(message =>
-        admin.messaging().send(message)
-      )
+      messages.map(item => admin.messaging().send(item))
     );
+
+    // DEBUG: FIREBASE RESPONSE
+    console.log('[PUSH] Firebase send results:', {
+      total: results.length,
+      success: results.filter(
+        result => result.status === 'fulfilled'
+      ).length,
+      failed: results.filter(
+        result => result.status === 'rejected'
+      ).length
+    });
 
     const invalidCodes = new Set([
       'messaging/registration-token-not-registered',
@@ -549,13 +546,20 @@ app.post('/api/push/send', async (req, res) => {
     results.forEach((result, index) => {
       if (result.status === 'fulfilled') {
         sent += 1;
+
+        console.log('[PUSH] FCM accepted message:', {
+          index,
+          messageId: result.value
+        });
+
       } else {
         failed += 1;
 
-        console.error(
-          'Push delivery error:',
-          result.reason?.code || result.reason?.message
-        );
+        console.error('[PUSH] FCM individual send error:', {
+          index,
+          code: result.reason?.code,
+          message: result.reason?.message
+        });
 
         if (invalidCodes.has(result.reason?.code)) {
           cleanup.push(
@@ -570,17 +574,31 @@ app.post('/api/push/send', async (req, res) => {
 
     if (cleanup.length) {
       await Promise.allSettled(cleanup);
+      console.log('[PUSH] Invalid FCM tokens cleaned:', cleanup.length);
     }
+
+    // DEBUG: FINAL SUMMARY
+    console.log('[PUSH] Final summary:', {
+      sent,
+      failed,
+      noDevice: selectedUsers.length - messages.length,
+      invalidRecords: invalidNotificationRecords
+    });
 
     return res.json({
       ok: true,
       sent,
       failed,
-      noDevice: recipientRows.length - messages.length
+      noDevice: selectedUsers.length - messages.length,
+      invalidRecords: invalidNotificationRecords
     });
 
   } catch (error) {
-    console.error('FCM push send error:', error);
+    console.error('[PUSH] FCM push send error:', {
+      code: error?.code,
+      message: error?.message,
+      stack: error?.stack
+    });
 
     const status = String(error?.code || '').startsWith('auth/')
       ? 401
@@ -596,7 +614,6 @@ app.post('/api/push/send', async (req, res) => {
 // ===============================
 // REQUEST OTP
 // ===============================
-
 app.post('/api/password-otp/request', async (req, res) => {
   try {
     if (!checkRequestRate(req)) {
@@ -618,26 +635,22 @@ app.post('/api/password-otp/request', async (req, res) => {
     const existing = otpStore.get(email);
 
     if (
-      existing &&
-      existing.lastSentAt &&
+      existing?.lastSentAt &&
       now() - existing.lastSentAt < RESEND_COOLDOWN_MS
     ) {
       const wait = Math.ceil(
-        (
-          RESEND_COOLDOWN_MS -
-          (now() - existing.lastSentAt)
-        ) / 1000
+        (RESEND_COOLDOWN_MS - (now() - existing.lastSentAt)) / 1000
       );
 
       return res.status(429).json({
         ok: false,
-        message:
-          `Please wait ${wait} seconds before requesting another OTP.`
+        message: `Please wait ${wait} seconds before requesting another OTP.`
       });
     }
 
     try {
       await auth.getUserByEmail(email);
+
     } catch (error) {
       if (error?.code !== 'auth/user-not-found') throw error;
 
@@ -685,7 +698,6 @@ app.post('/api/password-otp/request', async (req, res) => {
 // ===============================
 // VERIFY OTP
 // ===============================
-
 app.post('/api/password-otp/verify', async (req, res) => {
   try {
     if (!checkRequestRate(req)) {
@@ -698,10 +710,7 @@ app.post('/api/password-otp/verify', async (req, res) => {
     const email = normalizeEmail(req.body?.email);
     const otp = String(req.body?.otp || '').trim();
 
-    if (
-      !validGmail(email) ||
-      !/^\d{6}$/.test(otp)
-    ) {
+    if (!validGmail(email) || !/^\d{6}$/.test(otp)) {
       return res.status(400).json({
         ok: false,
         message: 'Enter the 6-digit OTP.'
@@ -710,14 +719,8 @@ app.post('/api/password-otp/verify', async (req, res) => {
 
     const record = otpStore.get(email);
 
-    if (!record) {
-      return res.status(400).json({
-        ok: false,
-        message: 'OTP expired. Please request a new OTP.'
-      });
-    }
-
     if (
+      !record ||
       !record.otpExpiresAt ||
       record.otpExpiresAt <= now()
     ) {
@@ -738,9 +741,7 @@ app.post('/api/password-otp/verify', async (req, res) => {
       });
     }
 
-    const suppliedHash = hash(otp);
-
-    if (!safeEqual(suppliedHash, record.otpHash)) {
+    if (!safeEqual(hash(otp), record.otpHash)) {
       record.attempts += 1;
 
       if (record.attempts >= MAX_OTP_ATTEMPTS) {
@@ -754,8 +755,7 @@ app.post('/api/password-otp/verify', async (req, res) => {
 
       return res.status(400).json({
         ok: false,
-        message:
-          `Wrong OTP. ${MAX_OTP_ATTEMPTS - record.attempts} attempts remaining.`
+        message: `Wrong OTP. ${MAX_OTP_ATTEMPTS - record.attempts} attempts remaining.`
       });
     }
 
@@ -785,7 +785,6 @@ app.post('/api/password-otp/verify', async (req, res) => {
 // ===============================
 // RESET PASSWORD
 // ===============================
-
 app.post('/api/password-otp/reset', async (req, res) => {
   try {
     if (!checkRequestRate(req)) {
@@ -865,10 +864,7 @@ app.post('/api/password-otp/reset', async (req, res) => {
       });
     }
 
-    const userProfileRef = db
-      .collection('users')
-      .doc(email);
-
+    const userProfileRef = db.collection('users').doc(email);
     const userProfile = await userProfileRef.get();
 
     if (userProfile.exists) {
@@ -906,7 +902,6 @@ app.post('/api/password-otp/reset', async (req, res) => {
 // ===============================
 // ERROR HANDLER
 // ===============================
-
 app.use((err, req, res, next) => {
   console.error('Unhandled server error:', err);
 
@@ -919,9 +914,6 @@ app.use((err, req, res, next) => {
 // ===============================
 // START SERVER
 // ===============================
-
 app.listen(PORT, () => {
-  console.log(
-    `2FC E-SPORTS OTP backend running on port ${PORT}`
-  );
+  console.log(`2FC E-SPORTS OTP backend running on port ${PORT}`);
 });
