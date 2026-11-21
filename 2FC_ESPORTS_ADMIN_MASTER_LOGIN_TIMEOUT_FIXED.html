@@ -1117,7 +1117,7 @@ body.twofc-admin-only{
 <div class="admin-section hidden" id="notificationSection">
 <div class="bg-[#061326] p-3 rounded-xl border border-[#174262] space-y-3 mb-3">
 <h4 class="font-bold text-xs text-cyan-300 uppercase"><i class="fa-solid fa-paper-plane mr-1"></i> Send User Notification</h4>
-<input class="field" id="adminNoticeSupportPin" inputmode="numeric" maxlength="32" placeholder="Enter one user Support PIN" required/><p class="text-[10px] text-slate-400">একটি Support PIN দিন। শুধু ওই PIN-এর একজন ইউজারই নোটিফিকেশন পাবেন। খালি রাখা বা একাধিক PIN দেওয়া যাবে না।</p>
+<input class="field" id="adminNoticeSupportPin" inputmode="numeric" maxlength="32" placeholder="Support PIN (optional; comma-separated)"/><p class="text-[10px] text-slate-400">PIN খালি রাখলে সব ইউজারকে যাবে। এক বা একাধিক PIN কমা দিয়ে দিলে শুধু ওই PIN-গুলোর ইউজাররা পাবেন।</p>
 <input class="field" id="adminNoticeTitle" maxlength="100" placeholder="Notification title"/>
 <textarea class="field" id="adminNoticeMessage" maxlength="1500" placeholder="Write message for the user" rows="3"></textarea>
 <label class="block text-[11px] font-bold text-cyan-200" for="adminNoticeTargetUrl">Notification Link <span class="font-normal text-slate-400">(Optional)</span></label>
@@ -2592,30 +2592,31 @@ async function loadMemberDashboard(){const list=document.getElementById('memberD
 function renderMemberDashboard(){const box=document.getElementById('memberDashboardList');if(!box)return;const q=(document.getElementById('memberDashboardSearch')?.value||'').trim().toLowerCase();const users=twofcDashboardUsers.filter(u=>!q||[u.name,u.email,u.phone,u.supportPin].some(v=>String(v||'').toLowerCase().includes(q)));if(!users.length){box.innerHTML='<p class="text-xs text-slate-400 py-4 text-center">No members found.</p>';return}box.innerHTML=users.map(u=>{const played=[];twofcDashboardMatches.forEach(m=>(m.joinedUsers||[]).forEach(entry=>{if(String(entry.email||'').toLowerCase()===String(u.email||'').toLowerCase())played.push({m,entry})}));played.sort((a,b)=>String(b.entry.joinedAt||b.m.startAt||'').localeCompare(String(a.entry.joinedAt||a.m.startAt||'')));return `<div class="twofc-member-card"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><strong class="text-sm text-white break-all">${twofcAdminSafe(u.name||'User')}</strong><p class="text-[10px] text-slate-400 break-all">${twofcAdminSafe(u.email)}</p><p class="text-[10px] text-slate-400">Phone: ${twofcAdminSafe(u.phone||'-')} • PIN: ${twofcAdminSafe(u.supportPin||'-')}</p></div><div class="text-right shrink-0"><strong class="text-lg text-cyan-300">${played.length}</strong><p class="text-[9px] text-slate-400 uppercase">Matches played</p></div></div><div class="grid grid-cols-2 gap-2 mt-2 text-[10px]"><div class="rounded bg-[#061326] p-2">User balance: <b>${twofcAdminSafe(u.balance||0)}৳</b></div><div class="rounded bg-[#061326] p-2">Earning: <b>${twofcAdminSafe(u.earnBalance||0)}৳</b></div></div><div class="mt-2"><h5 class="text-[10px] font-bold text-cyan-200 uppercase">Match-by-match history</h5>${played.length?played.map(({m,entry})=>`<div class="twofc-member-match"><div><strong class="text-slate-100">${twofcAdminSafe(m.title||'Match')}</strong><p class="text-slate-400">Category: ${twofcAdminSafe(m.category||'Classic Match')} • Type: ${twofcAdminSafe(entry.teamType||'solo')}</p><p class="text-slate-400">Match schedule: ${twofcAdminSafe(twofcAdminDate(m.startAt||m.dateTime||m.date))}</p><p class="text-slate-400">Joined at: ${twofcAdminSafe(twofcAdminDate(entry.joinedAt))}</p><p class="text-slate-400">IGN: ${twofcAdminSafe(entry.igns||entry.playerNames?.join?.(' / ')||'-')}</p></div><div class="text-right"><strong class="text-amber-300">${twofcAdminSafe(entry.entryFee||0)}৳</strong><p class="text-[9px] text-slate-500">Entry fee</p></div></div>`).join(''):'<p class="text-xs text-slate-500 py-2">No match participation recorded.</p>'}</div></div>`}).join('')}
 async function adminSendUserNotification(){
  const rawPin=(document.getElementById('adminNoticeSupportPin')?.value||'').trim(),title=(document.getElementById('adminNoticeTitle')?.value||'').trim(),message=(document.getElementById('adminNoticeMessage')?.value||'').trim(),rawTargetUrl=(document.getElementById('adminNoticeTargetUrl')?.value||'').trim(),status=document.getElementById('adminNoticeStatus');
- if(!rawPin){if(status)status.textContent='একজন ইউজারের Support PIN দিন।';return;}
- if(rawPin.includes(',')||/\s/.test(rawPin)){if(status)status.textContent='শুধু একটি Support PIN দিন।';return;}
  if(!message){if(status)status.textContent='Please enter a message.';return}if(!title){if(status)status.textContent='Please enter a title.';return}
+ const pins=[...new Set(rawPin.split(',').map(x=>x.trim()).filter(Boolean))];
  let targetUrl='';if(rawTargetUrl){try{const u=new URL(rawTargetUrl);if(u.protocol!=='https:'&&u.protocol!=='http:')throw new Error();targetUrl=u.href}catch(_){if(status)status.textContent='Enter a valid http:// or https:// link.';return}}
  try{
-  if(status)status.textContent='Checking this Support PIN...';
+  if(status)status.textContent=pins.length?'Finding users by Support PIN...':'Finding all registered users...';
   const snap=await window.getDocs(window.collection(window.db,'users'));
-  const matches=[];snap.forEach(ds=>{const d=ds.data()||{},p1=String(d.supportPin||'').trim(),p2=String(d.immutableSupportPin||'').trim();if(p1===rawPin||p2===rawPin)matches.push({email:String(ds.id||d.email||d.immutableEmail||'').trim().toLowerCase(),name:d.name||'',supportPin:p1||p2});});
-  const unique=[...new Map(matches.filter(u=>u.email).map(u=>[u.email,u])).values()];
-  if(unique.length===0){if(status)status.textContent='এই Support PIN-এর কোনো ইউজার পাওয়া যায়নি।';return;}
-  if(unique.length!==1){if(status)status.textContent='এই PIN একাধিক অ্যাকাউন্টে আছে। নিরাপত্তার জন্য পাঠানো হয়নি।';return;}
-  const target=unique[0];if(!target.email){if(status)status.textContent='এই ইউজারের Gmail পাওয়া যায়নি।';return;}
-  if(status)status.textContent='Saving notification and sending push...';
-  const now=new Date().toISOString();
-  const notificationRef=await window.addDoc(window.collection(window.db,'userNotifications'),{recipientEmail:target.email,recipientName:target.name||target.email,recipientSupportPin:target.supportPin,title,message,targetUrl,createdAt:now,updatedAt:'',read:false,readAt:'',cleared:false,sentBy:window.adminAuth?.currentUser?.email||'admin'});
+  const targets=[];snap.forEach(ds=>{const d=ds.data()||{},email=String(ds.id||d.email||d.immutableEmail||'').trim().toLowerCase(),p1=String(d.supportPin||'').trim(),p2=String(d.immutableSupportPin||'').trim();if(!email)return;if(!pins.length||(pins.includes(p1)||pins.includes(p2)))targets.push({email,name:d.name||'',supportPin:p1||p2});});
+  const unique=[...new Map(targets.map(u=>[u.email,u])).values()];
+  if(!unique.length){if(status)status.textContent=pins.length?'এই PIN-গুলোর কোনো ইউজার পাওয়া যায়নি।':'কোনো ইউজার পাওয়া যায়নি।';return;}
+  if(unique.length>500){if(status)status.textContent='একবারে সর্বোচ্চ ৫০০ জনকে পাঠানো যাবে। PIN দিয়ে সংখ্যা কমান।';return;}
+  if(status)status.textContent='Saving notifications for '+unique.length+' user(s)...';
+  const now=new Date().toISOString(),recipients=[];
+  for(const target of unique){
+   const notificationRef=await window.addDoc(window.collection(window.db,'userNotifications'),{recipientEmail:target.email,recipientName:target.name||target.email,recipientSupportPin:target.supportPin||'',title,message,targetUrl,createdAt:now,updatedAt:'',read:false,readAt:'',cleared:false,sentBy:window.adminAuth?.currentUser?.email||'admin'});
+   recipients.push({email:target.email,notificationId:notificationRef.id});
+  }
   let pushNote='Android push service was not reached.';
   try{
    const adminUser=window.adminAuth?.currentUser;if(!adminUser)throw new Error('Please log in to Admin again.');
    const idToken=await adminUser.getIdToken();
-   const pushResponse=await fetch(window.TWOFcOtpApiBase+'/api/push/send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+idToken},body:JSON.stringify({supportPin:rawPin,recipients:[{email:target.email,notificationId:notificationRef.id}],title,message,targetUrl})});
+   const pushResponse=await fetch(window.TWOFcOtpApiBase+'/api/push/send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+idToken},body:JSON.stringify({supportPin:pins.join(','),recipients,title,message,targetUrl})});
    const pushData=await pushResponse.json().catch(()=>({}));if(!pushResponse.ok||!pushData.ok)throw new Error(pushData.message||'Push sending failed.');
-   pushNote='Android push sent to '+(pushData.sent||0)+' device(s).';
+   pushNote='Android push sent: '+(pushData.sent||0)+' device(s); failed: '+(pushData.failed||0)+'; no device: '+(pushData.noDevice||0)+'.';
   }catch(pushError){pushNote='In-app saved; Android push failed: '+(pushError.message||'backend unavailable');}
-  if(status)status.textContent='নোটিফিকেশন শুধু '+target.email+'-এর জন্য সংরক্ষণ হয়েছে। '+pushNote;
+  if(status)status.textContent='নোটিফিকেশন '+unique.length+' জন ইউজারের জন্য সংরক্ষণ হয়েছে। '+pushNote;
   document.getElementById('adminNoticeSupportPin').value='';document.getElementById('adminNoticeTitle').value='';document.getElementById('adminNoticeMessage').value='';document.getElementById('adminNoticeTargetUrl').value='';await loadAdminUserNotifications();
  }catch(e){if(status)status.textContent='Send failed: '+(e.message||'Check Firestore rules/connection')}
 }
