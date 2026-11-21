@@ -1,5 +1,5 @@
-
-// 2FC E-SPORTS - Firebase Push Notification Service Worker
+// 2FC E-SPORTS Service Worker
+// Firebase Cloud Messaging Background Notifications
 
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
@@ -15,16 +15,18 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// BACKGROUND PUSH NOTIFICATION
+// Background notification handler
 messaging.onBackgroundMessage((payload) => {
-  const data = payload?.data || {};
+  const data = payload.data || {};
 
   return self.registration.showNotification(
     data.title || "2FC E-SPORTS",
     {
       body: data.body || "You have a new notification.",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
       data: {
-        url: data.url || data.targetUrl || "/"
+        url: data.url || "/"
       },
       tag: "2fc-" + (data.notificationId || Date.now()),
       renotify: true
@@ -32,7 +34,7 @@ messaging.onBackgroundMessage((payload) => {
   );
 });
 
-// NOTIFICATION CLICK
+// When user taps notification
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
@@ -65,41 +67,33 @@ self.addEventListener("notificationclick", (event) => {
   })());
 });
 
-// WORKBOX
+// Workbox support
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/5.1.2/workbox-sw.js');
 
 const CACHE = "pwabuilder-page";
 const offlineFallbackPage = "/";
 
-// SKIP WAITING
+// Activate new service worker
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
 });
 
-// INSTALL
+// Install
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => {
-      return cache.add(offlineFallbackPage);
-    })
+    caches.open(CACHE)
+      .then((cache) => cache.add(offlineFallbackPage))
   );
 });
 
-// ACTIVATE
-self.addEventListener("activate", (event) => {
-  event.waitUntil((async () => {
-    await clients.claim();
-  })());
-});
-
-// NAVIGATION PRELOAD
+// Navigation preload
 if (workbox.navigationPreload.isSupported()) {
   workbox.navigationPreload.enable();
 }
 
-// OFFLINE NAVIGATION
+// Fetch and offline fallback
 self.addEventListener("fetch", (event) => {
   if (event.request.mode === "navigate") {
     event.respondWith((async () => {
