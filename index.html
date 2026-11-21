@@ -1613,7 +1613,7 @@ body{padding-bottom:calc(88px + env(safe-area-inset-bottom,0px))!important}
 </div>
 <div>
 <label class="block text-xs font-semibold text-slate-300 mb-1">Password</label>
-<input class="field" id="loginPass" type="password"/>
+<div class="twofc-password-wrap"><input autocomplete="current-password" class="field" id="loginPass" type="password"/><button class="twofc-password-eye" type="button" aria-label="Show password" aria-pressed="false" onclick="twofcTogglePassword('loginPass',this)"><i class="fa-regular fa-eye-slash"></i></button></div>
 </div>
 <button class="red-btn auth-submit" onclick="handleLoginSubmit()">Login <i class="fa-solid fa-arrow-right"></i></button>
 <div class="twofc-google-separator"><span>OR CONTINUE WITH</span></div>
@@ -1653,11 +1653,11 @@ body{padding-bottom:calc(88px + env(safe-area-inset-bottom,0px))!important}
 </div>
 <div>
 <label class="block text-xs font-semibold text-slate-300 mb-1">Password</label>
-<input class="field" id="regPass" type="password"/>
+<div class="twofc-password-wrap"><input autocomplete="new-password" class="field" id="regPass" type="password"/><button class="twofc-password-eye" type="button" aria-label="Show password" aria-pressed="false" onclick="twofcTogglePassword('regPass',this)"><i class="fa-regular fa-eye-slash"></i></button></div>
 </div>
 <div>
 <label class="block text-xs font-semibold text-slate-300 mb-1">Confirm Password</label>
-<input class="field" id="regConfirmPass" type="password"/>
+<div class="twofc-password-wrap"><input autocomplete="new-password" class="field" id="regConfirmPass" type="password"/><button class="twofc-password-eye" type="button" aria-label="Show password" aria-pressed="false" onclick="twofcTogglePassword('regConfirmPass',this)"><i class="fa-regular fa-eye-slash"></i></button></div>
 </div>
 <button class="red-btn auth-submit" onclick="handleRegisterSubmit()">Create Account <i class="fa-solid fa-arrow-right"></i></button>
 <div class="twofc-google-separator"><span>OR CONTINUE WITH</span></div>
@@ -1680,7 +1680,7 @@ body{padding-bottom:calc(88px + env(safe-area-inset-bottom,0px))!important}
 <label class="block text-xs text-slate-300">Display Name</label><input class="field" id="editProfileName" maxlength="40" placeholder="Your name"/>
 <label class="block text-xs text-slate-300">Phone Number</label><input class="field" id="editProfilePhone" maxlength="20" placeholder="Phone number" type="tel"/>
 <label class="block text-xs text-slate-300">Email / Gmail</label><input class="field" id="editProfileEmail" placeholder="Email address" type="email"/>
-<label class="block text-xs text-amber-300">Current login password (required to save)</label><input autocomplete="current-password" class="field" id="editProfilePassword" placeholder="Enter your login password" type="password"/>
+<label class="block text-xs text-amber-300">Current login password (required to save)</label><div class="twofc-password-wrap"><input autocomplete="current-password" class="field" id="editProfilePassword" placeholder="Enter your login password" type="password"/><button class="twofc-password-eye" type="button" aria-label="Show password" aria-pressed="false" onclick="twofcTogglePassword('editProfilePassword',this)"><i class="fa-regular fa-eye-slash"></i></button></div>
 <p class="text-xs text-rose-400" id="editProfileMessage"></p>
 <div class="grid grid-cols-2 gap-2"><button class="dark-btn" onclick="closeEditProfile()" type="button">Cancel</button><button class="blue-btn" id="saveEditProfileBtn" onclick="saveEditedProfile()" type="button">Save Changes</button></div>
 </div>
@@ -3596,5 +3596,27 @@ if ('serviceWorker' in navigator) {
   });
 })();
 </script>
+
+<style>
+/* Password visibility controls: hidden by default, toggle only on tap */
+.twofc-password-wrap{position:relative;width:100%}
+.twofc-password-wrap input{width:100%;padding-right:48px!important}
+.twofc-password-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:30px;height:34px;display:flex;align-items:center;justify-content:center;color:#aeb8d4;background:transparent;border:0;z-index:3;cursor:pointer}
+.twofc-password-eye i{font-size:17px}
+.twofc-password-eye:focus-visible{outline:2px solid #a855f7;outline-offset:2px;border-radius:8px}
+</style>
+<script>
+function twofcTogglePassword(inputId, button){
+  const input=document.getElementById(inputId);
+  if(!input||!button)return;
+  const show=input.type==="password";
+  input.type=show?"text":"password";
+  button.setAttribute("aria-pressed",show?"true":"false");
+  button.setAttribute("aria-label",show?"Hide password":"Show password");
+  const icon=button.querySelector("i");
+  if(icon){icon.classList.toggle("fa-eye",show);icon.classList.toggle("fa-eye-slash",!show);}
+}
+</script>
+
 </body>
 </html>
