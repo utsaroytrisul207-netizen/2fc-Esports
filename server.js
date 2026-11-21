@@ -82,6 +82,26 @@ function now() {
   return Date.now();
 }
 
+function parseSupportPins(value) {
+  return [...new Set(
+    String(value || '')
+      .split(',')
+      .map(pin => pin.trim())
+      .filter(Boolean)
+  )];
+}
+
+function validHttpUrl(value) {
+  if (!value) return true;
+
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 // ===============================
 // EXPRESS SECURITY
 // ===============================
@@ -273,7 +293,7 @@ async function sendOtpEmail(email, otp) {
             ">${otp}</div>
             <p>This OTP is valid for <b>5 minutes</b>.</p>
             <p>After 5 wrong attempts, the current OTP becomes invalid.</p>
-            <p>If you did not request a password reset, you can safely ignore this email.</p>
+            <p>If you did not request this password reset, you can safely ignore this email.</p>
             <hr>
             <p style="font-size:12px;color:#777">
               2FC E-SPORTS Security System
@@ -313,11 +333,13 @@ app.get('/health', (req, res) => {
 
 // ===============================
 // FIREBASE CLOUD MESSAGING PUSH SENDER
+// SUPPORT PIN: MULTIPLE USERS
 // ===============================
 
 app.post('/api/push/send', async (req, res) => {
   try {
     const authHeader = String(req.headers.authorization || '');
+
     const idToken = authHeader.startsWith('Bearer ')
       ? authHeader.slice(7).trim()
       : '';
@@ -330,7 +352,11 @@ app.post('/api/push/send', async (req, res) => {
     }
 
     const decoded = await auth.verifyIdToken(idToken);
-    const adminSnap = await db.collection('admins').doc(decoded.uid).get();
+
+    const adminSnap = await db
+      .collection('admins')
+      .doc(decoded.uid)
+      .get();
 
     if (!adminSnap.exists || adminSnap.data()?.active !== true) {
       return res.status(403).json({
@@ -339,56 +365,190 @@ app.post('/api/push/send', async (req, res) => {
       });
     }
 
-    const title = String(req.body?.title || '').trim().slice(0, 100);
-    const body = String(req.body?.message || '').trim().slice(0, 1500);
+    const title = String(req.body?.title || '')
+      .trim()
+      .slice(0, 100);
+
+    const body = String(req.body?.message || '')
+      .trim()
+      .slice(0, 1500);
+
+    const supportPins = parseSupportPins(req.body?.supportPin);
+
     const recipients = Array.isArray(req.body?.recipients)
       ? req.body.recipients
       : [];
 
-    const unique = new Map();
+    const targetUrl = String(req.body?.targetUrl || '').trim();
+
+    if (
+      !title ||
+      !body ||
+      !supportPins.length ||
+      supportPins.length > 100 ||
+      !recipients.length ||
+      recipients.length > 100 ||
+      !validHttpUrl(targetUrl)
+    ) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Invalid push notification details or Support PIN.'
+      });
+    }
+
+    // Find users matching the supplied Support PINs.
+    const matchedUsers = new Map();
+
+    for (const pin of supportPins) {
+      const [supportPinSnap, immutablePinSnap] = await Promise.all([
+        db.collection('users')
+          .where('supportPin', '==', pin)
+          .get(),
+
+        db.collection('users')
+          .where('immutableSupportPin', '==', pin)
+          .get()
+      ]);
+
+      for (const snap of supportPinSnap.docs) {
+        matchedUsers.set(snap.id, snap);
+      }
+
+      for (const snap of immutablePinSnap.docs) {
+        matchedUsers.set(snap.id, snap);
+      }
+    }
+
+    if (!matchedUsers.size) {
+      return res.status(404).json({
+        ok: false,
+        message: 'No users found for the supplied Support PIN.'
+      });
+    }
+
+    // Build the requested recipient list.
+    const requestedRecipients = new Map();
 
     for (const item of recipients) {
       const email = normalizeEmail(item?.email);
       const notificationId = String(item?.notificationId || '').trim();
 
       if (email && notificationId) {
-        unique.set(email, notificationId);
+        requestedRecipients.set(email, notificationId);
       }
     }
 
-    if (!title || !body || !unique.size || unique.size > 500) {
+    if (!requestedRecipients.size) {
       return res.status(400).json({
         ok: false,
-        message: 'Invalid push notification details.'
+        message: 'No valid notification recipients were supplied.'
       });
     }
 
-    const recipientRows = [...unique.entries()];
+    // Every requested recipient must match one of the supplied PINs.
+    const matchedRecipientRows = [];
 
-    const userDocs = await Promise.all(
-      recipientRows.map(([email]) =>
-        db.collection('users').doc(email).get()
-      )
-    );
+    for (const [email, notificationId] of requestedRecipients.entries()) {
+      const userSnap = matchedUsers.get(email);
 
+      if (!userSnap || !userSnap.exists) {
+        return res.status(403).json({
+          ok: false,
+          message: 'A recipient does not match the supplied Support PINs.'
+        });
+      }
+
+      const userData = userSnap.data() || {};
+
+      const userPins = [
+        String(userData.supportPin || '').trim(),
+        String(userData.immutableSupportPin || '').trim()
+      ].filter(Boolean);
+
+      const pinMatches = userPins.some(pin => supportPins.includes(pin));
+
+      if (!pinMatches) {
+        return res.status(403).json({
+          ok: false,
+          message: 'Support PIN verification failed for a recipient.'
+        });
+      }
+
+      matchedRecipientRows.push({
+        email,
+        notificationId,
+        userSnap
+      });
+    }
+
+    // Ensure every matched PIN user has a corresponding notification record.
     const messages = [];
     const tokenRefs = [];
 
-    userDocs.forEach((snap, index) => {
-      const [email, notificationId] = recipientRows[index];
-      const token = String(snap.data()?.fcmToken || '').trim();
+    for (const row of matchedRecipientRows) {
+      const notificationSnap = await db
+        .collection('userNotifications')
+        .doc(row.notificationId)
+        .get();
 
-      if (!token) return;
+      if (!notificationSnap.exists) {
+        return res.status(400).json({
+          ok: false,
+          message: 'A saved in-app notification record was not found.'
+        });
+      }
+
+      const notificationData = notificationSnap.data() || {};
+
+      if (
+        normalizeEmail(notificationData.recipientEmail) !== row.email
+      ) {
+        return res.status(403).json({
+          ok: false,
+          message: 'Notification recipient verification failed.'
+        });
+      }
+
+      const notificationPin = String(
+        notificationData.recipientSupportPin || ''
+      ).trim();
+
+      const userData = row.userSnap.data() || {};
+
+      const userPins = [
+        String(userData.supportPin || '').trim(),
+        String(userData.immutableSupportPin || '').trim()
+      ].filter(Boolean);
+
+      if (
+        notificationPin &&
+        !userPins.includes(notificationPin)
+      ) {
+        return res.status(403).json({
+          ok: false,
+          message: 'Saved notification Support PIN does not match.'
+        });
+      }
+
+      const token = String(userData.fcmToken || '').trim();
+
+      if (!token) continue;
+
+      const notificationUrl = targetUrl ||
+        '/?notificationId=' + encodeURIComponent(row.notificationId);
 
       messages.push({
         token,
+
         data: {
           title,
           body,
-          url: '/?notificationId=' + encodeURIComponent(notificationId),
-          notificationId,
+          url: notificationUrl,
+          targetUrl: targetUrl || '',
+          notificationId: row.notificationId,
           notificationType: '2fc-user-notification'
         },
+
         webpush: {
           headers: {
             TTL: '86400',
@@ -397,20 +557,22 @@ app.post('/api/push/send', async (req, res) => {
         }
       });
 
-      tokenRefs.push(snap.ref);
-    });
+      tokenRefs.push(row.userSnap.ref);
+    }
 
     if (!messages.length) {
       return res.json({
         ok: true,
         sent: 0,
-        noDevice: recipientRows.length,
-        message: 'No enabled devices found.'
+        noDevice: matchedRecipientRows.length,
+        message: 'No enabled devices found for the selected users.'
       });
     }
 
     const results = await Promise.allSettled(
-      messages.map(message => admin.messaging().send(message))
+      messages.map(message =>
+        admin.messaging().send(message)
+      )
     );
 
     const invalidCodes = new Set([
@@ -419,6 +581,7 @@ app.post('/api/push/send', async (req, res) => {
     ]);
 
     const cleanup = [];
+
     let sent = 0;
     let failed = 0;
 
@@ -447,7 +610,7 @@ app.post('/api/push/send', async (req, res) => {
       ok: true,
       sent,
       failed,
-      noDevice: recipientRows.length - messages.length
+      noDevice: matchedRecipientRows.length - messages.length
     });
 
   } catch (error) {
@@ -512,7 +675,10 @@ app.post('/api/password-otp/request', async (req, res) => {
     } catch (error) {
       if (error?.code !== 'auth/user-not-found') throw error;
 
-      const legacyUser = await db.collection('users').doc(email).get();
+      const legacyUser = await db
+        .collection('users')
+        .doc(email)
+        .get();
 
       if (!legacyUser.exists) {
         return res.status(404).json({
@@ -707,6 +873,7 @@ app.post('/api/password-otp/reset', async (req, res) => {
 
     try {
       user = await auth.getUserByEmail(email);
+
       await auth.updateUser(user.uid, {
         password: newPassword
       });
@@ -714,7 +881,10 @@ app.post('/api/password-otp/reset', async (req, res) => {
     } catch (error) {
       if (error?.code !== 'auth/user-not-found') throw error;
 
-      const legacyUser = await db.collection('users').doc(email).get();
+      const legacyUser = await db
+        .collection('users')
+        .doc(email)
+        .get();
 
       if (!legacyUser.exists) {
         return res.status(404).json({
@@ -729,7 +899,10 @@ app.post('/api/password-otp/reset', async (req, res) => {
       });
     }
 
-    const userProfileRef = db.collection('users').doc(email);
+    const userProfileRef = db
+      .collection('users')
+      .doc(email);
+
     const userProfile = await userProfileRef.get();
 
     if (userProfile.exists) {
