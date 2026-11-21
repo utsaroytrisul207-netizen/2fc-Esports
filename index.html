@@ -632,6 +632,21 @@ button{cursor:pointer}
 .twofc-member-match{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;border-top:1px solid #17334c;padding:8px 0;font-size:11px}
 @media(max-width:420px){.twofc-notify-panel{top:66px}.twofc-member-match{grid-template-columns:1fr}.twofc-dashboard-stat strong{font-size:19px}}
 
+
+/* 2FC floating support shortcut: visible only on Home, Notifications and Profile */
+#twofcSupportFloat{position:fixed;right:16px;bottom:calc(94px + env(safe-area-inset-bottom,0px));z-index:10020;width:58px;height:58px;border:2px solid rgba(255,255,255,.9);border-radius:50%;background:linear-gradient(145deg,#8b5cf6,#5b21b6);color:#fff;box-shadow:0 8px 24px rgba(91,33,182,.38);display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer}
+#twofcSupportFloat[hidden],#twofcSupportModal[hidden]{display:none!important}
+#twofcSupportModal{position:fixed;inset:0;z-index:10030;display:flex;align-items:flex-end;justify-content:center;padding:16px;background:rgba(3,10,24,.58);backdrop-filter:blur(4px)}
+#twofcSupportModal .support-sheet{width:min(420px,100%);padding:18px;border:1px solid rgba(167,139,250,.35);border-radius:22px;background:linear-gradient(145deg,#0b2038,#071426);box-shadow:0 18px 60px #0008;color:#f8fafc}
+#twofcSupportModal .support-sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-size:18px;font-weight:900}
+#twofcSupportModal .support-close{width:34px;height:34px;border:1px solid #294765;border-radius:10px;background:#102a45;color:#e2e8f0;font-size:20px}
+#twofcSupportModal .support-choice{display:flex;align-items:center;gap:12px;width:100%;margin-top:10px;padding:14px;border:1px solid #254663;border-radius:14px;background:#0b2945;color:#f8fafc;text-decoration:none;font-weight:800}
+#twofcSupportModal .support-choice i{width:28px;text-align:center;font-size:24px}
+#twofcSupportModal .support-choice.telegram i{color:#29a9ea}
+#twofcSupportModal .support-choice.whatsapp i{color:#25d366}
+#twofcSupportModal .support-choice small{display:block;margin-top:3px;color:#9fb4ca;font-size:11px;font-weight:500}
+@media(min-width:701px){#twofcSupportModal{align-items:center}#twofcSupportFloat{right:24px;bottom:110px}}
+
 </style>
 <script id="twofc-account-stability-guard">
 /* 2FC ACCOUNT STABILITY:
@@ -1880,8 +1895,19 @@ body{padding-bottom:calc(88px + env(safe-area-inset-bottom,0px))!important}
 <button class="bottom-action" id="navNotifications" onclick="toggleUserNotifications()" type="button"><span class="bottom-action-icon"><i class="fa-solid fa-bell"></i><span class="bottom-notification-badge hidden" id="bottomNotificationBadge">0</span></span><span class="bottom-action-label">Notification</span></button>
 <button class="bottom-action" id="navProfile" onclick="navigatePage('accountPage');twofcSetBottomActive('navProfile')" type="button"><span class="bottom-action-icon"><i class="fa-regular fa-user"></i></span><span class="bottom-action-label">Profile</span></button>
 </nav>
+
+<!-- Floating support launcher (Home / Notifications / Profile only) -->
+<button id="twofcSupportFloat" type="button" aria-label="Open support options" onclick="twofcToggleSupport(true)" hidden><i class="fa-solid fa-headset"></i></button>
+<div id="twofcSupportModal" role="dialog" aria-modal="true" aria-labelledby="twofcSupportTitle" hidden onclick="if(event.target===this)twofcToggleSupport(false)">
+  <div class="support-sheet">
+    <div class="support-sheet-head"><span id="twofcSupportTitle">Support</span><button class="support-close" type="button" aria-label="Close support" onclick="twofcToggleSupport(false)">×</button></div>
+    <a class="support-choice telegram" href="https://t.me/two_fc_support" target="_blank" rel="noopener noreferrer" onclick="twofcToggleSupport(false)"><i class="fa-brands fa-telegram"></i><span>Telegram Support<small>@two_fc_support</small></span></a>
+    <a class="support-choice whatsapp" href="https://wa.me/8801621018516" target="_blank" rel="noopener noreferrer" onclick="twofcToggleSupport(false)"><i class="fa-brands fa-whatsapp"></i><span>WhatsApp Support<small>+880 1621-018516</small></span></a>
+  </div>
+</div>
 <script>
 let currentUserEmail=localStorage.getItem('2fc_user_email')||null;
+document.addEventListener('DOMContentLoaded',()=>twofcUpdateSupportVisibility('homePage'));
 let activeMatchId=null,selectedGatewayMethod=null,currentDepositAmount=0;
 const depositNumber="01898915968";
 
@@ -1941,6 +1967,17 @@ async function loadDrawerProfileData(){
     }
 }
 
+function twofcToggleSupport(open){
+    const modal=document.getElementById('twofcSupportModal');
+    if(modal)modal.hidden=!open;
+}
+function twofcUpdateSupportVisibility(pageId){
+    const launcher=document.getElementById('twofcSupportFloat');
+    if(!launcher)return;
+    launcher.hidden=!['homePage','notificationsPage','accountPage'].includes(pageId);
+    if(launcher.hidden)twofcToggleSupport(false);
+}
+
 function navigatePage(pageId){
     // Close the profile drawer before switching pages so it never remains layered
     // over Home or Notifications after a bottom-navigation tap.
@@ -1948,6 +1985,7 @@ function navigatePage(pageId){
     if((pageId==='accountPage'||pageId==='addMoneyPage'||pageId==='withdrawPage'||pageId==='withdrawHistoryPage'||pageId==='depositHistoryPage'||pageId==='withdrawPaymentMethodPage'||pageId==='supportPage'||pageId==='notificationsPage')&&!currentUserEmail){document.querySelectorAll('.page-section').forEach(p=>p.classList.add('hidden'));const login=document.getElementById('loginPage');if(login)login.classList.remove('hidden');window.scrollTo(0,0);return}
     document.querySelectorAll('.page-section').forEach(p=>p.classList.add('hidden'));
     const page=document.getElementById(pageId); if(page)page.classList.remove('hidden');
+    twofcUpdateSupportVisibility(pageId);
     window.scrollTo(0,0);
     document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.remove('active'));
     if(pageId==='homePage')document.getElementById('navHome').classList.add('active');
