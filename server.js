@@ -1,4 +1,3 @@
-
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -12,7 +11,7 @@ const PORT = Number(process.env.PORT || 3000);
 // 2FC E-SPORTS OTP SECURITY
 // ===============================
 
-const OTP_TTL_MS = 60_000;
+const OTP_TTL_MS = 5 * 60_000;
 const RESEND_COOLDOWN_MS = 60_000;
 const RESET_SESSION_TTL_MS = 10 * 60_000;
 const MAX_OTP_ATTEMPTS = 5;
@@ -28,9 +27,7 @@ function required(name) {
   const value = process.env[name];
 
   if (!value) {
-    throw new Error(
-      `Missing required environment variable: ${name}`
-    );
+    throw new Error(`Missing required environment variable: ${name}`);
   }
 
   return value;
@@ -55,7 +52,7 @@ function normalizeEmail(value) {
 }
 
 function validGmail(email) {
-  return /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@gmail.com$/i.test(email);
+  return /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@gmail\.com$/i.test(email);
 }
 
 function randomOtp() {
@@ -254,7 +251,7 @@ async function sendOtpEmail(email, otp) {
 
         text:
           `Your 2FC E-SPORTS password reset OTP is ${otp}.\n\n` +
-          `This OTP is valid for 1 minute.\n` +
+          `This OTP is valid for 5 minutes.\n` +
           `After 5 wrong attempts, the OTP becomes invalid.\n\n` +
           `If you did not request this password reset, you can ignore this email.`,
 
@@ -266,41 +263,21 @@ async function sendOtpEmail(email, otp) {
             margin:auto;
             padding:20px;
           ">
-
             <h2>2FC E-SPORTS — Password Reset</h2>
-
             <p>Your 6-digit password reset OTP is:</p>
-
             <div style="
               font-size:32px;
               font-weight:800;
               letter-spacing:8px;
               margin:20px 0;
-            ">
-              ${otp}
-            </div>
-
-            <p>
-              This OTP is valid for
-              <b>1 minute</b>.
-            </p>
-
-            <p>
-              After 5 wrong attempts,
-              the current OTP becomes invalid.
-            </p>
-
-            <p>
-              If you did not request a password reset,
-              you can safely ignore this email.
-            </p>
-
+            ">${otp}</div>
+            <p>This OTP is valid for <b>5 minutes</b>.</p>
+            <p>After 5 wrong attempts, the current OTP becomes invalid.</p>
+            <p>If you did not request a password reset, you can safely ignore this email.</p>
             <hr>
-
             <p style="font-size:12px;color:#777">
               2FC E-SPORTS Security System
             </p>
-
           </div>
         `
       })
@@ -341,7 +318,6 @@ app.get('/health', (req, res) => {
 app.post('/api/push/send', async (req, res) => {
   try {
     const authHeader = String(req.headers.authorization || '');
-
     const idToken = authHeader.startsWith('Bearer ')
       ? authHeader.slice(7).trim()
       : '';
@@ -354,30 +330,17 @@ app.post('/api/push/send', async (req, res) => {
     }
 
     const decoded = await auth.verifyIdToken(idToken);
+    const adminSnap = await db.collection('admins').doc(decoded.uid).get();
 
-    const adminSnap = await db
-      .collection('admins')
-      .doc(decoded.uid)
-      .get();
-
-    if (
-      !adminSnap.exists ||
-      adminSnap.data()?.active !== true
-    ) {
+    if (!adminSnap.exists || adminSnap.data()?.active !== true) {
       return res.status(403).json({
         ok: false,
         message: 'Active admin access required.'
       });
     }
 
-    const title = String(
-      req.body?.title || ''
-    ).trim().slice(0, 100);
-
-    const body = String(
-      req.body?.message || ''
-    ).trim().slice(0, 1500);
-
+    const title = String(req.body?.title || '').trim().slice(0, 100);
+    const body = String(req.body?.message || '').trim().slice(0, 1500);
     const recipients = Array.isArray(req.body?.recipients)
       ? req.body.recipients
       : [];
@@ -386,22 +349,14 @@ app.post('/api/push/send', async (req, res) => {
 
     for (const item of recipients) {
       const email = normalizeEmail(item?.email);
-
-      const notificationId = String(
-        item?.notificationId || ''
-      ).trim();
+      const notificationId = String(item?.notificationId || '').trim();
 
       if (email && notificationId) {
         unique.set(email, notificationId);
       }
     }
 
-    if (
-      !title ||
-      !body ||
-      !unique.size ||
-      unique.size > 500
-    ) {
+    if (!title || !body || !unique.size || unique.size > 500) {
       return res.status(400).json({
         ok: false,
         message: 'Invalid push notification details.'
@@ -421,28 +376,19 @@ app.post('/api/push/send', async (req, res) => {
 
     userDocs.forEach((snap, index) => {
       const [email, notificationId] = recipientRows[index];
-
-      const token = String(
-        snap.data()?.fcmToken || ''
-      ).trim();
+      const token = String(snap.data()?.fcmToken || '').trim();
 
       if (!token) return;
 
       messages.push({
         token,
-
         data: {
           title,
           body,
-
-          url:
-            '/?notificationId=' +
-            encodeURIComponent(notificationId),
-
+          url: '/?notificationId=' + encodeURIComponent(notificationId),
           notificationId,
           notificationType: '2fc-user-notification'
         },
-
         webpush: {
           headers: {
             TTL: '86400',
@@ -464,9 +410,7 @@ app.post('/api/push/send', async (req, res) => {
     }
 
     const results = await Promise.allSettled(
-      messages.map(message =>
-        admin.messaging().send(message)
-      )
+      messages.map(message => admin.messaging().send(message))
     );
 
     const invalidCodes = new Set([
@@ -475,7 +419,6 @@ app.post('/api/push/send', async (req, res) => {
     ]);
 
     const cleanup = [];
-
     let sent = 0;
     let failed = 0;
 
@@ -510,9 +453,9 @@ app.post('/api/push/send', async (req, res) => {
   } catch (error) {
     console.error('FCM push send error:', error);
 
-    const status = String(
-      error?.code || ''
-    ).startsWith('auth/') ? 401 : 500;
+    const status = String(error?.code || '').startsWith('auth/')
+      ? 401
+      : 500;
 
     return res.status(status).json({
       ok: false,
@@ -545,7 +488,6 @@ app.post('/api/password-otp/request', async (req, res) => {
 
     const existing = otpStore.get(email);
 
-    // 60-second resend protection
     if (
       existing &&
       existing.lastSentAt &&
@@ -565,35 +507,31 @@ app.post('/api/password-otp/request', async (req, res) => {
       });
     }
 
-    // Check Firebase Authentication account
     try {
       await auth.getUserByEmail(email);
-    } catch {
-      return res.status(404).json({
-        ok: false,
-        message:
-          'No registered 2FC account was found for this Gmail.'
-      });
+    } catch (error) {
+      if (error?.code !== 'auth/user-not-found') throw error;
+
+      const legacyUser = await db.collection('users').doc(email).get();
+
+      if (!legacyUser.exists) {
+        return res.status(404).json({
+          ok: false,
+          message: 'No registered 2FC account was found for this Gmail.'
+        });
+      }
     }
 
     const otp = randomOtp();
 
-    // Send email before storing OTP
     await sendOtpEmail(email, otp);
 
     otpStore.set(email, {
       otpHash: hash(otp),
-
-      otpExpiresAt:
-        now() + OTP_TTL_MS,
-
-      lastSentAt:
-        now(),
-
+      otpExpiresAt: now() + OTP_TTL_MS,
+      lastSentAt: now(),
       attempts: 0,
-
       resetTokenHash: null,
-
       resetExpiresAt: 0
     });
 
@@ -626,10 +564,7 @@ app.post('/api/password-otp/verify', async (req, res) => {
     }
 
     const email = normalizeEmail(req.body?.email);
-
-    const otp = String(
-      req.body?.otp || ''
-    ).trim();
+    const otp = String(req.body?.otp || '').trim();
 
     if (
       !validGmail(email) ||
@@ -650,7 +585,6 @@ app.post('/api/password-otp/verify', async (req, res) => {
       });
     }
 
-    // OTP expiration
     if (
       !record.otpExpiresAt ||
       record.otpExpiresAt <= now()
@@ -663,26 +597,18 @@ app.post('/api/password-otp/verify', async (req, res) => {
       });
     }
 
-    // Maximum attempts
     if (record.attempts >= MAX_OTP_ATTEMPTS) {
       otpStore.delete(email);
 
       return res.status(429).json({
         ok: false,
-        message:
-          'Too many wrong attempts. Please request a new OTP.'
+        message: 'Too many wrong attempts. Please request a new OTP.'
       });
     }
 
     const suppliedHash = hash(otp);
 
-    // Secure constant-time comparison
-    if (
-      !safeEqual(
-        suppliedHash,
-        record.otpHash
-      )
-    ) {
+    if (!safeEqual(suppliedHash, record.otpHash)) {
       record.attempts += 1;
 
       if (record.attempts >= MAX_OTP_ATTEMPTS) {
@@ -690,33 +616,24 @@ app.post('/api/password-otp/verify', async (req, res) => {
 
         return res.status(429).json({
           ok: false,
-          message:
-            'Too many wrong attempts. Please request a new OTP.'
+          message: 'Too many wrong attempts. Please request a new OTP.'
         });
       }
 
       return res.status(400).json({
         ok: false,
         message:
-          `Wrong OTP. ${
-            MAX_OTP_ATTEMPTS - record.attempts
-          } attempts remaining.`
+          `Wrong OTP. ${MAX_OTP_ATTEMPTS - record.attempts} attempts remaining.`
       });
     }
 
-    // OTP SUCCESS
     const resetToken = randomToken();
 
-    // Make OTP single-use
     record.otpHash = null;
     record.otpExpiresAt = 0;
     record.attempts = 0;
-
-    // Temporary reset session
     record.resetTokenHash = hash(resetToken);
-
-    record.resetExpiresAt =
-      now() + RESET_SESSION_TTL_MS;
+    record.resetExpiresAt = now() + RESET_SESSION_TTL_MS;
 
     return res.json({
       ok: true,
@@ -747,23 +664,11 @@ app.post('/api/password-otp/reset', async (req, res) => {
     }
 
     const email = normalizeEmail(req.body?.email);
+    const resetToken = String(req.body?.resetToken || '');
+    const newPassword = String(req.body?.newPassword || '');
+    const confirmPassword = String(req.body?.confirmPassword || '');
 
-    const resetToken = String(
-      req.body?.resetToken || ''
-    );
-
-    const newPassword = String(
-      req.body?.newPassword || ''
-    );
-
-    const confirmPassword = String(
-      req.body?.confirmPassword || ''
-    );
-
-    if (
-      !validGmail(email) ||
-      !resetToken
-    ) {
+    if (!validGmail(email) || !resetToken) {
       return res.status(400).json({
         ok: false,
         message: 'Invalid reset session.'
@@ -773,8 +678,7 @@ app.post('/api/password-otp/reset', async (req, res) => {
     if (newPassword.length < 6) {
       return res.status(400).json({
         ok: false,
-        message:
-          'Password must be at least 6 characters.'
+        message: 'Password must be at least 6 characters.'
       });
     }
 
@@ -791,51 +695,63 @@ app.post('/api/password-otp/reset', async (req, res) => {
       !record ||
       !record.resetTokenHash ||
       record.resetExpiresAt <= now() ||
-      !safeEqual(
-        hash(resetToken),
-        record.resetTokenHash
-      )
+      !safeEqual(hash(resetToken), record.resetTokenHash)
     ) {
       return res.status(400).json({
         ok: false,
-        message:
-          'Reset session expired. Please start again.'
+        message: 'Reset session expired. Please start again.'
       });
     }
 
-    // Find Firebase user
-    const user = await auth.getUserByEmail(email);
+    let user;
 
-    // Change Firebase Authentication password
-    await auth.updateUser(
-      user.uid,
-      {
+    try {
+      user = await auth.getUserByEmail(email);
+      await auth.updateUser(user.uid, {
         password: newPassword
-      }
-    );
-
-    // Metadata only. Never store password or reset token.
-    await db
-      .collection('passwordChangeEvents')
-      .add({
-        uid: user.uid,
-
-        email,
-
-        changedAt:
-          admin.firestore.FieldValue.serverTimestamp(),
-
-        method:
-          '6-digit-email-otp'
       });
 
-    // Delete one-time reset session
+    } catch (error) {
+      if (error?.code !== 'auth/user-not-found') throw error;
+
+      const legacyUser = await db.collection('users').doc(email).get();
+
+      if (!legacyUser.exists) {
+        return res.status(404).json({
+          ok: false,
+          message: 'No registered 2FC account was found for this Gmail.'
+        });
+      }
+
+      user = await auth.createUser({
+        email,
+        password: newPassword
+      });
+    }
+
+    const userProfileRef = db.collection('users').doc(email);
+    const userProfile = await userProfileRef.get();
+
+    if (userProfile.exists) {
+      await userProfileRef.update({
+        password: admin.firestore.FieldValue.delete(),
+        authUid: user.uid,
+        passwordUpdatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    await db.collection('passwordChangeEvents').add({
+      uid: user.uid,
+      email,
+      changedAt: admin.firestore.FieldValue.serverTimestamp(),
+      method: '6-digit-email-otp'
+    });
+
     otpStore.delete(email);
 
     return res.json({
       ok: true,
-      message:
-        'Password changed successfully. You can now login.'
+      message: 'Password changed successfully. You can now login.'
     });
 
   } catch (error) {
@@ -843,8 +759,7 @@ app.post('/api/password-otp/reset', async (req, res) => {
 
     return res.status(500).json({
       ok: false,
-      message:
-        'Unable to change password right now.'
+      message: 'Unable to change password right now.'
     });
   }
 });
