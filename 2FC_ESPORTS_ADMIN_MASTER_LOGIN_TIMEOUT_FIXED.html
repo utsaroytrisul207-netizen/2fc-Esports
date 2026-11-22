@@ -592,6 +592,48 @@ body.twofc-admin-only{
 <style id="twofc-pending-money-alert-style">
 .twofc-money-alert-nav{position:relative}.twofc-pending-money-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:5px;border-radius:999px;background:#ef233c;color:#fff;font-size:10px;font-weight:900;line-height:18px;box-shadow:0 0 0 2px rgba(239,35,60,.16);animation:twofcMoneyPulse 1.5s infinite}.twofc-pending-money-badge.hidden{display:none}@keyframes twofcMoneyPulse{0%,100%{box-shadow:0 0 0 2px rgba(239,35,60,.16)}50%{box-shadow:0 0 0 5px rgba(239,35,60,.08)}}
 </style>
+
+<style id="twofc-admin-premium-visual-only">
+/* Visual-only refresh: admin dashboard, navigation and existing Support PIN search. */
+body.twofc-admin-auth-ok { background:#f6f3ff !important; }
+#adminPanelPage { background:linear-gradient(180deg,#f7f4ff 0%,#ffffff 58%,#f5f1ff 100%) !important; min-height:100vh; padding:12px 10px 100px !important; }
+#adminPanelPage > .admin-dashboard { background:transparent !important; color:#28194b !important; border:0 !important; box-shadow:none !important; }
+#adminPanelPage .admin-dashboard > .flex.justify-between.items-center.border-b { background:linear-gradient(115deg,#6d36c9,#8d5be5) !important; color:#fff !important; border:0 !important; border-radius:20px !important; padding:15px !important; box-shadow:0 12px 28px rgba(91,49,170,.20) !important; }
+#adminPanelPage .admin-dashboard h3 { color:#fff !important; font-size:16px !important; letter-spacing:.2px; }
+#adminPanelPage .twofc-role-badge { background:#fff !important; color:#6b35bd !important; border:1px solid #e8dcff !important; }
+#adminPanelPage #twofcAdminIdentityControls { flex-wrap:wrap; justify-content:flex-end; }
+#adminPanelPage .dark-btn, #adminPanelPage .blue-btn { border-radius:12px !important; }
+#adminPanelPage .admin-section-nav { background:#fff !important; border:1px solid #e9defb !important; border-radius:20px !important; padding:13px !important; box-shadow:0 8px 24px rgba(74,42,130,.08) !important; display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px !important; margin:14px 0 18px !important; }
+#adminPanelPage .admin-section-nav::before { content:'⋮  PROFILE  •  ALL ADMIN CONTROLS'; grid-column:1/-1; color:#6b35bd; font-weight:900; font-size:12px; letter-spacing:1px; padding:2px 4px 8px; border-bottom:1px solid #eee6fb; margin-bottom:2px; }
+#adminPanelPage .admin-section-nav.twofc-menu-collapsed { display:none !important; }
+#adminPanelPage .admin-section-btn { min-height:48px !important; display:flex !important; align-items:center; gap:9px; text-align:left !important; padding:10px 11px !important; border:1px solid #eee7fa !important; border-radius:13px !important; background:#faf8ff !important; color:#443260 !important; font-size:11px !important; font-weight:800 !important; box-shadow:0 2px 7px rgba(75,45,130,.035); }
+#adminPanelPage .admin-section-btn i { color:#7846ce !important; width:17px; text-align:center; font-size:14px; }
+#adminPanelPage .admin-section-btn.active { background:linear-gradient(120deg,#713bc7,#9566e7) !important; color:#fff !important; border-color:#713bc7 !important; box-shadow:0 7px 16px rgba(113,59,199,.2) !important; }
+#adminPanelPage .admin-section-btn.active i { color:#fff !important; }
+#adminPanelPage .admin-section { margin-top:12px; }
+#adminPanelPage .admin-section > div { background:#fff !important; color:#35234f !important; border:1px solid #e9defb !important; border-radius:18px !important; box-shadow:0 8px 22px rgba(74,42,130,.07) !important; }
+#adminPanelPage .admin-section h4, #adminPanelPage .admin-section label { color:#6236aa !important; }
+#adminPanelPage .admin-section p { color:#76698b; }
+#adminPanelPage .admin-section .field, #adminPanelPage .admin-section input, #adminPanelPage .admin-section textarea, #adminPanelPage .admin-section select { background:#fbfaff !important; color:#302344 !important; border:1px solid #ded1f5 !important; border-radius:11px !important; }
+#adminPanelPage .admin-section button { border-radius:11px; }
+#adminPanelPage #memberSearchSection > div { background:#fff !important; border:1px solid #dfd1f6 !important; }
+#adminPanelPage #memberSearchSection h4::before { content:'🛟 '; }
+#adminPanelPage #memberSearchSection h4 { font-size:13px !important; color:#6639b1 !important; }
+#adminPanelPage #memberSearchSupportPin { background:#faf8ff !important; color:#302344 !important; border-color:#dfd1f6 !important; }
+#adminPanelPage .twofc-pending-money-badge { background:#fce7f3 !important; color:#be185d !important; }
+#adminPanelPage .twofc-admin-bottom-nav { position:fixed; z-index:9998; left:10px; right:10px; bottom:10px; display:grid; grid-template-columns:repeat(3,1fr); gap:7px; padding:8px; border:1px solid #e6daf9; border-radius:18px; background:rgba(255,255,255,.96); box-shadow:0 10px 30px rgba(60,34,105,.18); backdrop-filter:blur(12px); }
+#adminPanelPage .twofc-admin-bottom-nav button { min-height:46px; border:0; border-radius:12px; background:#f5efff; color:#6236aa; font-size:11px; font-weight:900; }
+#adminPanelPage .twofc-admin-bottom-nav button i { display:block; font-size:16px; margin-bottom:3px; }
+#adminPanelPage .twofc-admin-bottom-nav button:last-child { background:#6f3bc2; color:#fff; }
+#adminPanelPage .twofc-admin-bottom-nav button:active { transform:scale(.98); }
+#twofcAdminAuthGate .twofc-auth-card { background:#fff !important; color:#35234f !important; border:1px solid #e9defb !important; box-shadow:0 18px 55px rgba(74,42,130,.15) !important; border-radius:24px !important; }
+#twofcAdminAuthGate .twofc-auth-title { color:#6236aa !important; }
+#twofcAdminAuthGate .twofc-auth-sub { color:#8b79a5 !important; }
+#twofcAdminAuthGate .field { background:#fbfaff !important; color:#302344 !important; border:1px solid #ded1f5 !important; border-radius:12px !important; }
+#twofcAdminAuthGate .red-btn { background:linear-gradient(120deg,#6f39c1,#9564e5) !important; border-radius:12px !important; }
+@media(min-width:700px){#adminPanelPage .admin-section-nav{grid-template-columns:repeat(3,minmax(0,1fr))}#adminPanelPage{max-width:1100px;margin:0 auto}}
+</style>
+
 </head>
 <body>
 <header class="site-header">
@@ -953,6 +995,7 @@ body.twofc-admin-only{
 <p class="twofc-auth-message" id="twofcRegMessage"></p>
 </div>
 </div>
+
 </div>
 <div class="twofc-owner-modal hidden" id="twofcPasswordModal">
 <div class="twofc-owner-box" style="max-width:430px">
@@ -979,7 +1022,7 @@ body.twofc-admin-only{
 <div class="page-section hidden" id="adminPanelPage">
 <div class="panel p-4 space-y-4 admin-dashboard">
 <div class="flex justify-between items-center border-b border-slate-700 pb-2">
-<h3 class="font-bold text-sm"><i class="fa-solid fa-shield-halved text-cyan-300"></i> Admin Dashboard</h3>
+<div class="flex items-center gap-2"><button type="button" aria-label="Open profile menu" onclick="document.querySelector('#adminPanelPage .admin-section-nav')?.classList.toggle('twofc-menu-collapsed')" style="width:38px;height:38px;border-radius:12px;background:#fff;color:#713bc7;border:1px solid #eadffc;font-size:22px;font-weight:900">⋮</button><h3 class="font-bold text-sm"><i class="fa-solid fa-shield-halved text-cyan-300"></i> Admin Dashboard</h3></div>
 <div class="flex items-center gap-2" id="twofcAdminIdentityControls">
 <span class="twofc-role-badge" id="twofcAdminRoleBadge">ADMIN</span>
 <button class="dark-btn hidden" id="twofcOwnerControlBtn" onclick="twofcOpenOwnerModal()" style="width:auto;padding:7px 12px;font-size:11px"><i class="fa-solid fa-user-shield"></i> Admin Control</button>
@@ -1212,6 +1255,11 @@ body.twofc-admin-only{
 </div>
 </div>
 </div>
+<nav class="twofc-admin-bottom-nav" aria-label="Admin navigation">
+<button type="button" onclick="document.querySelector('#adminPanelPage .admin-section-nav')?.classList.remove('twofc-menu-collapsed');showAdminSection('memberDashboardSection',document.querySelector('#adminPanelPage .admin-section-btn'));loadMemberDashboard();window.scrollTo(0,0)"><i class="fa-solid fa-house"></i>Home</button>
+<button type="button" onclick="document.querySelector('#adminPanelPage .admin-section-nav')?.classList.remove('twofc-menu-collapsed');document.querySelector('#adminPanelPage .admin-section-nav')?.scrollIntoView({behavior:'smooth',block:'start'})"><i class="fa-solid fa-user-circle"></i>Profile</button>
+<button type="button" onclick="document.querySelector('#adminPanelPage .admin-section-nav')?.classList.remove('twofc-menu-collapsed');showAdminSection('memberSearchSection',document.querySelectorAll('#adminPanelPage .admin-section-btn')[8]);document.getElementById('memberSearchSection')?.scrollIntoView({behavior:'smooth',block:'start'})"><i class="fa-solid fa-headset"></i>Support PIN</button>
+</nav>
 </div>
 <div class="prize-modal-backdrop" id="prizeModal" onclick="if(event.target===this)closePrizeModal()">
 <div class="prize-modal">
