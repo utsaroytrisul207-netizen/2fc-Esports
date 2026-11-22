@@ -592,7 +592,6 @@ body.twofc-admin-only{
 <style id="twofc-pending-money-alert-style">
 .twofc-money-alert-nav{position:relative}.twofc-pending-money-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:5px;border-radius:999px;background:#ef233c;color:#fff;font-size:10px;font-weight:900;line-height:18px;box-shadow:0 0 0 2px rgba(239,35,60,.16);animation:twofcMoneyPulse 1.5s infinite}.twofc-pending-money-badge.hidden{display:none}@keyframes twofcMoneyPulse{0%,100%{box-shadow:0 0 0 2px rgba(239,35,60,.16)}50%{box-shadow:0 0 0 5px rgba(239,35,60,.08)}}
 </style>
-
 <style id="twofc-admin-premium-visual-only">
 /* Visual-only refresh: admin dashboard, navigation and existing Support PIN search. */
 body.twofc-admin-auth-ok { background:#f6f3ff !important; }
@@ -630,56 +629,79 @@ body.twofc-admin-only .bottom-nav { display:none !important; }
 #twofcAdminAuthGate .red-btn { background:linear-gradient(120deg,#6f39c1,#9564e5) !important; border-radius:12px !important; }
 @media(min-width:700px){#adminPanelPage .admin-section-nav{grid-template-columns:repeat(3,minmax(0,1fr))}#adminPanelPage{max-width:1100px;margin:0 auto}}
 </style>
-
-<style id="twofc-admin-purple-white-gold-visual-only">
-/* DESIGN-ONLY FINAL OVERRIDES: no HTML functionality, handlers, or scripts changed. */
-:root{--twofc-purple:#7c3aed;--twofc-purple2:#a78bfa;--twofc-gold:#facc15;--twofc-green:#16a34a;--twofc-red:#e11d48;--twofc-ink:#3b245e;--twofc-soft:#faf7ff}
-body.twofc-admin-only,body.twofc-admin-auth-ok{background:radial-gradient(circle at 8% 0%,#f1e8ff 0,transparent 38%),linear-gradient(135deg,#fff,#faf5ff 55%,#fffbea)!important}
-#adminPanelPage{background:transparent!important;color:var(--twofc-ink)!important}
-#adminPanelPage .admin-dashboard{display:grid!important;grid-template-columns:minmax(210px,270px) minmax(0,1fr)!important;gap:14px!important;align-items:start!important;padding:0!important;overflow:visible!important}
-#adminPanelPage .admin-dashboard>.flex.justify-between.items-center.border-b{grid-column:1/-1!important;background:linear-gradient(110deg,#7c3aed,#a855f7,#c084fc)!important;border:1px solid #d8b4fe!important;border-radius:20px!important;box-shadow:0 14px 32px rgba(124,58,237,.24),inset 0 1px rgba(255,255,255,.55)!important}
-#adminPanelPage .admin-section-nav{grid-column:1!important;grid-row:2!important;display:flex!important;flex-direction:column!important;gap:8px!important;position:sticky!important;top:12px!important;max-height:calc(100vh - 24px)!important;overflow-y:auto!important;background:linear-gradient(180deg,#fff,#fcfaff)!important;border:1px solid #e9d5ff!important;border-radius:20px!important;box-shadow:0 10px 28px rgba(124,58,237,.10)!important}
-#adminPanelPage .admin-section-nav.twofc-menu-collapsed{display:none!important}
-#adminPanelPage .admin-section{grid-column:2!important;grid-row:2!important;min-width:0!important;margin-top:0!important}
-#adminPanelPage .admin-section:not(.hidden){animation:twofcAdminFade .22s ease-out both}
-#adminPanelPage .admin-section>div{background:linear-gradient(160deg,#fff,#fdfaff)!important;color:#45286b!important;border:1px solid #e9d5ff!important;border-radius:20px!important;box-shadow:0 10px 28px rgba(124,58,237,.09),inset 0 1px rgba(255,255,255,.9)!important}
-#adminPanelPage .admin-section h4,#adminPanelPage .admin-section h5,#adminPanelPage .admin-section label,#adminPanelPage .admin-section strong{color:#6d28d9!important}
-#adminPanelPage .admin-section p,#adminPanelPage .admin-section small{color:#65527e!important}
-#adminPanelPage .admin-section .field,#adminPanelPage .admin-section input,#adminPanelPage .admin-section textarea,#adminPanelPage .admin-section select{background:#fff!important;color:#382653!important;border:1px solid #d8c4f5!important;box-shadow:inset 0 1px 3px rgba(124,58,237,.04)!important}
-#adminPanelPage .admin-section .field::placeholder,#adminPanelPage .admin-section input::placeholder,#adminPanelPage .admin-section textarea::placeholder{color:#9b87b8!important;opacity:1}
-#adminPanelPage .admin-section .field:focus,#adminPanelPage .admin-section input:focus,#adminPanelPage .admin-section textarea:focus,#adminPanelPage .admin-section select:focus{border-color:#a855f7!important;box-shadow:0 0 0 3px rgba(168,85,247,.14)!important;outline:none!important}
-#adminPanelPage .admin-section-nav::before{color:#7c3aed!important;border-color:#f3e8ff!important}
-#adminPanelPage .admin-section-btn{background:linear-gradient(145deg,#fff,#faf5ff)!important;color:#5b318b!important;border:1px solid #eadcff!important;box-shadow:0 3px 9px rgba(124,58,237,.07)!important;font-weight:800!important}
-#adminPanelPage .admin-section-btn i{color:#8b5cf6!important}
-#adminPanelPage .admin-section-btn:hover,#adminPanelPage .admin-section button:hover,#adminPanelPage #twofcAdminIdentityControls button:hover{transform:translateY(-2px) scale(1.025)!important;filter:saturate(1.12)!important;box-shadow:0 9px 22px rgba(124,58,237,.17)!important}
-#adminPanelPage .admin-section-btn:active,#adminPanelPage .admin-section button:active,#adminPanelPage #twofcAdminIdentityControls button:active{transform:translateY(1px) scale(.97)!important;filter:brightness(1.08)!important}
-#adminPanelPage .admin-section-btn.active{background:linear-gradient(125deg,#7c3aed,#a855f7)!important;color:#fff!important;border-color:#a78bfa!important;box-shadow:0 8px 20px rgba(124,58,237,.25)!important}
-#adminPanelPage .admin-section-btn.active i{color:#fff!important}
-#adminPanelPage button.blue-btn,#adminPanelPage button.red-btn{background:linear-gradient(120deg,#7c3aed,#a855f7)!important;color:#fff!important;border:1px solid #c4b5fd!important;box-shadow:0 5px 14px rgba(124,58,237,.17)!important}
-#adminPanelPage button.dark-btn{background:linear-gradient(120deg,#fff,#f5edff)!important;color:#6236aa!important;border:1px solid #e4d4fa!important;box-shadow:0 4px 12px rgba(124,58,237,.08)!important}
-#adminPanelPage button[style*="color: red"],#adminPanelPage button[style*="color:#fda4af"],#adminPanelPage button[style*="color: #fda4af"]{color:#e11d48!important}
-#adminPanelPage .twofc-pending-money-badge{background:#fee2e2!important;color:#be123c!important;box-shadow:0 0 0 2px #fecaca!important}
-#adminPanelPage .admin-section [class*="bg-[#061326"],#adminPanelPage .admin-section [class*="bg-[#0b2038"],#adminPanelPage .admin-section [class*="bg-[#0a1d32"],#adminPanelPage .admin-section [class*="bg-[#071b31"]{background:linear-gradient(135deg,#fff,#fbf7ff)!important;border-color:#e9d5ff!important}
-#adminPanelPage .admin-section [class*="text-white"],#adminPanelPage .admin-section [class*="text-slate-300"],#adminPanelPage .admin-section [class*="text-slate-400"],#adminPanelPage .admin-section [class*="text-slate-500"]{color:#5b4775!important}
-#adminPanelPage .admin-section [class*="text-cyan-"],#adminPanelPage .admin-section [class*="text-emerald-"]{color:#7c3aed!important}
-#adminPanelPage .admin-section [class*="text-amber-"]{color:#b77900!important}
-#adminPanelPage .admin-section [class*="text-rose-"],#adminPanelPage .admin-section [class*="text-red-"]{color:#e11d48!important}
-#adminPanelPage .admin-section [class*="border-[#174262"]{border-color:#e9d5ff!important}
-#adminPanelPage .admin-section [class*="bg-[#0b2038"],#adminPanelPage .admin-section [class*="bg-[#0a1d32"]{background:#fff!important}
-#adminPanelPage .admin-section [class*="bg-emerald-"]{background:#dcfce7!important;color:#166534!important}
-#adminPanelPage .admin-section [class*="bg-rose-"],#adminPanelPage .admin-section [class*="bg-red-"]{background:#ffe4e6!important;color:#9f1239!important}
-#adminPanelPage .admin-section [class*="bg-amber-"]{background:#fef3c7!important;color:#92400e!important}
-#adminPanelPage .admin-section [class*="bg-purple-"]{background:#f3e8ff!important;color:#6b21a8!important}
-#adminPanelPage .admin-section table{color:#493260!important}
-#adminPanelPage .admin-section th{color:#6d28d9!important;background:#f5edff!important}
-#adminPanelPage .admin-section td{color:#4b3865!important}
-#adminPanelPage .admin-section .twofc-dashboard-stat{border-color:#e9d5ff!important;background:linear-gradient(135deg,#fff,#faf5ff)!important}
-#adminPanelPage .admin-section .twofc-dashboard-stat strong{color:#7c3aed!important}
-@keyframes twofcAdminFade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
-@media(max-width:699px){#adminPanelPage .admin-dashboard{grid-template-columns:minmax(0,1fr)!important;gap:10px!important}#adminPanelPage .admin-section-nav{grid-column:1!important;grid-row:2!important;position:relative!important;top:auto!important;max-height:none!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;flex-direction:initial!important}#adminPanelPage .admin-section-nav.twofc-menu-collapsed{display:none!important}#adminPanelPage .admin-section{grid-column:1!important;grid-row:3!important}#adminPanelPage .admin-section-nav::before{grid-column:1/-1!important}}
-@media(min-width:700px){#adminPanelPage .admin-section-nav.twofc-menu-collapsed{display:none!important}#adminPanelPage .admin-section-nav{grid-template-columns:1fr!important}}
+<style id="twofc-admin-login-premium-visual-only">
+/* Visual-only login treatment. No existing functions or handlers are changed. */
+/* Prevent public/tournament content from flashing before the auth gate is ready. */
+body:not(.twofc-admin-auth-ok) .page-section:not(#adminPanelPage),
+body:not(.twofc-admin-auth-ok) #adminPanelPage,
+body:not(.twofc-admin-auth-ok) .site-header,
+body:not(.twofc-admin-auth-ok) #profileBackdrop,
+body:not(.twofc-admin-auth-ok) #profileDrawer{display:none!important;visibility:hidden!important}
+body:not(.twofc-admin-auth-ok) #twofcAdminAuthGate{display:flex!important;visibility:visible!important}
+#twofcAdminAuthGate{
+  flex-direction:column!important;gap:15px!important;overflow-y:auto;
+  background:radial-gradient(ellipse at 50% 8%,rgba(139,92,246,.28),transparent 34%),
+    radial-gradient(ellipse at 12% 85%,rgba(217,119,6,.13),transparent 30%),
+    linear-gradient(145deg,#05040b 0%,#10091f 48%,#05040b 100%)!important;
+  padding:28px 16px!important;
+}
+.twofc-login-shell-brand{display:flex;flex-direction:column;align-items:center;gap:7px;color:#fff;text-align:center;filter:drop-shadow(0 8px 24px rgba(139,92,246,.25));}
+.twofc-login-shell-brand img{width:76px;height:76px;object-fit:cover;border-radius:23px;border:1px solid rgba(251,191,36,.8);box-shadow:0 0 0 5px rgba(139,92,246,.13),0 0 35px rgba(168,85,247,.35);}
+.twofc-login-shell-brand span{font-size:21px;letter-spacing:2px;font-weight:950;color:#fff;text-shadow:0 2px 18px rgba(167,139,250,.4)}
+.twofc-login-shell-brand span b{color:#fbbf24}
+.twofc-login-shell-brand small{font-size:9px;letter-spacing:3px;font-weight:900;color:#c4b5fd}
+#twofcAdminAuthGate .twofc-auth-card{position:relative;width:min(440px,100%);padding:27px 24px 24px!important;border-radius:27px!important;
+  background:linear-gradient(145deg,rgba(28,18,48,.98),rgba(10,8,20,.99))!important;
+  color:#f8fafc!important;border:1px solid rgba(196,181,253,.32)!important;
+  box-shadow:0 28px 90px rgba(0,0,0,.62),0 0 45px rgba(124,58,237,.17),inset 0 1px rgba(255,255,255,.09)!important;}
+#twofcAdminAuthGate .twofc-auth-card:before{content:"👑  PREMIUM ADMIN ACCESS  👑";display:block;text-align:center;color:#fbbf24;font-size:10px;font-weight:950;letter-spacing:2px;margin:0 0 17px;}
+#twofcAdminAuthGate .twofc-auth-logo{width:88px;height:88px;margin:0 auto 13px;border-radius:25px!important;border:2px solid rgba(251,191,36,.75)!important;box-shadow:0 0 0 5px rgba(139,92,246,.14),0 0 30px rgba(168,85,247,.25);}
+#twofcAdminAuthGate .twofc-auth-title{font-size:23px!important;font-weight:950!important;letter-spacing:1.2px;color:#fff!important;}
+#twofcAdminAuthGate .twofc-auth-sub{font-size:11px!important;font-weight:800;letter-spacing:1.5px;color:#c4b5fd!important;margin:5px 0 22px!important;}
+#twofcAdminAuthGate .twofc-auth-view h2{color:#f5d0fe!important;font-size:18px!important;font-weight:950!important;}
+#twofcAdminAuthGate .field{min-height:47px;padding:12px 14px!important;background:rgba(255,255,255,.07)!important;color:#fff!important;border:1px solid rgba(196,181,253,.28)!important;border-radius:14px!important;outline:none;}
+#twofcAdminAuthGate .field::placeholder{color:#c4b5d8!important;opacity:1}
+#twofcAdminAuthGate .field:focus{border-color:#c4b5fd!important;box-shadow:0 0 0 3px rgba(139,92,246,.2)!important;}
+#twofcAdminAuthGate .red-btn{min-height:48px;font-weight:950!important;letter-spacing:1px;color:#160d24!important;background:linear-gradient(105deg,#fbbf24,#f5d78e 45%,#c084fc)!important;border:1px solid rgba(255,255,255,.35)!important;border-radius:14px!important;box-shadow:0 10px 26px rgba(168,85,247,.23)!important;}
+#twofcAdminAuthGate .twofc-link-btn{color:#d8b4fe!important;text-decoration:none!important;font-weight:850!important;}
+#twofcAdminAuthGate .twofc-auth-note{color:#d1c5e4!important;}
+#twofcAdminAuthGate .twofc-auth-message{color:#fda4af!important;}
+@media(max-width:480px){#twofcAdminAuthGate{justify-content:center!important;padding:20px 13px!important}.twofc-login-shell-brand img{width:68px;height:68px}.twofc-login-shell-brand span{font-size:19px}#twofcAdminAuthGate .twofc-auth-card{padding:23px 18px!important}}
 </style>
-</head>
+<style>/* UI-only sidebar, contrast and touch feedback patch */
+#adminPanelPage{max-width:100%!important;width:100%!important;overflow-x:hidden!important}
+#adminPanelPage .admin-dashboard{position:relative!important;display:block!important;width:100%!important;max-width:100%!important;margin:0!important;padding:12px!important;overflow:visible!important;background:linear-gradient(145deg,#fff,#faf7ff 55%,#f3eaff)!important;color:#4c1d95!important;border:1px solid #e6d8ff!important;border-radius:22px!important;box-shadow:0 12px 38px rgba(109,40,217,.13)!important}
+#adminPanelPage .admin-dashboard>div.flex.justify-between.items-center.border-b{display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:10px!important;background:linear-gradient(105deg,#7c3aed,#a855f7,#d8b4fe)!important;border-radius:16px!important;padding:12px!important;box-shadow:0 8px 22px rgba(124,58,237,.22)!important}
+#adminPanelPage .admin-dashboard>div.flex.justify-between.items-center.border-b h3{color:#fff!important;font-weight:900!important;font-size:clamp(14px,2vw,18px)!important}
+#adminPanelPage button[aria-label="Open profile menu"]{flex:0 0 44px!important;width:44px!important;height:44px!important;background:#fff!important;color:#6d28d9!important;border:1px solid #eadcff!important;box-shadow:0 4px 12px rgba(74,29,149,.18)!important;font-size:23px!important}
+#adminPanelPage #twofcAdminIdentityControls{display:flex!important;flex-wrap:wrap!important;gap:7px!important;align-items:center!important}
+#adminPanelPage #twofcAdminIdentityControls button,#adminPanelPage .admin-dashboard>div.flex.justify-between.items-center.border-b>button.dark-btn{background:#fff!important;color:#5b21b6!important;border:1px solid #e9d5ff!important;font-weight:850!important;box-shadow:0 3px 9px rgba(91,33,182,.09)!important}
+#adminPanelPage .admin-section-nav{display:grid!important;grid-template-columns:1fr!important;gap:8px!important;position:fixed!important;left:12px!important;top:90px!important;bottom:12px!important;width:min(270px,78vw)!important;max-height:calc(100dvh - 102px)!important;overflow-y:auto!important;z-index:99990!important;margin:0!important;padding:12px!important;border-radius:20px!important;background:linear-gradient(160deg,#fff,#f4eaff)!important;border:1px solid #d8b4fe!important;box-shadow:0 18px 48px rgba(91,33,182,.24)!important;transform:translateX(calc(-100% - 20px))!important;transition:transform .26s cubic-bezier(.2,.8,.2,1)!important}
+#adminPanelPage .admin-section-nav.twofc-menu-collapsed{display:grid!important;transform:translateX(0)!important}
+#adminPanelPage .admin-section-nav::before{color:#6d28d9!important;font-weight:950!important;font-size:11px!important;letter-spacing:.6px!important}
+#adminPanelPage .admin-section-btn{min-height:44px!important;width:100%!important;text-align:left!important;justify-content:flex-start!important;display:flex!important;align-items:center!important;gap:10px!important;padding:11px 13px!important;border-radius:13px!important;background:#fff!important;color:#5b21b6!important;border:1px solid #eadcff!important;font-weight:850!important;font-size:12px!important;box-shadow:0 3px 8px rgba(91,33,182,.07)!important;transition:transform .18s ease,box-shadow .18s ease,background .18s ease,color .18s ease!important}
+#adminPanelPage .admin-section-btn:hover,#adminPanelPage .admin-section-btn:focus-visible{transform:translateY(-2px) scale(1.015)!important;background:#f3e8ff!important;box-shadow:0 8px 20px rgba(124,58,237,.16)!important}
+#adminPanelPage .admin-section-btn:active{transform:scale(.97)!important}
+#adminPanelPage .admin-section-btn.active{background:linear-gradient(110deg,#7c3aed,#a855f7)!important;color:#fff!important;border-color:#8b5cf6!important;box-shadow:0 6px 18px rgba(124,58,237,.26)!important}
+#adminPanelPage .admin-section{width:100%!important;max-width:100%!important;margin:12px 0!important}
+#adminPanelPage .admin-section>div{background:linear-gradient(150deg,#fff,#fcfaff)!important;border:1px solid #e7d8ff!important;border-radius:16px!important;box-shadow:0 8px 22px rgba(91,33,182,.08)!important;color:#4c1d95!important}
+#adminPanelPage .admin-section h4,#adminPanelPage .admin-section h5,#adminPanelPage .admin-section label{color:#6d28d9!important;font-weight:900!important}
+#adminPanelPage .admin-section p,#adminPanelPage .admin-section small,#adminPanelPage .admin-section span:not(.twofc-pending-money-badge){color:#6b4b91!important}
+#adminPanelPage .admin-section input,#adminPanelPage .admin-section textarea,#adminPanelPage .admin-section select,#adminPanelPage .field{background:#fff!important;color:#4c1d95!important;border:1px solid #d8b4fe!important;box-shadow:0 2px 6px rgba(91,33,182,.05)!important}
+#adminPanelPage .admin-section input::placeholder,#adminPanelPage .admin-section textarea::placeholder{color:#8b70aa!important;opacity:1!important}
+#adminPanelPage .admin-section input:focus,#adminPanelPage .admin-section textarea:focus,#adminPanelPage .admin-section select:focus{outline:none!important;border-color:#8b5cf6!important;box-shadow:0 0 0 3px rgba(139,92,246,.15)!important}
+#adminPanelPage .admin-section button,#adminPanelPage .admin-dashboard button{transition:transform .18s ease,filter .18s ease,box-shadow .18s ease!important}
+#adminPanelPage .admin-section button:active,#adminPanelPage .admin-dashboard button:active{transform:scale(.96)!important;filter:brightness(1.06)!important}
+#adminPanelPage .blue-btn{background:linear-gradient(110deg,#7c3aed,#a855f7)!important;color:#fff!important;border:1px solid #8b5cf6!important;box-shadow:0 5px 14px rgba(124,58,237,.18)!important;font-weight:900!important}
+#adminPanelPage .dark-btn{background:#fff!important;color:#6d28d9!important;border:1px solid #d8b4fe!important;font-weight:850!important}
+#adminPanelPage .twofc-member-card,#adminPanelPage .twofc-dashboard-stat{background:#fff!important;border:1px solid #e9d5ff!important;color:#4c1d95!important}
+#adminPanelPage .twofc-member-card *{color:#6d28d9!important}
+#adminPanelPage .twofc-member-card strong,#adminPanelPage .twofc-dashboard-stat strong{color:#7c3aed!important;font-weight:950!important}
+#adminPanelPage .twofc-member-match{border-color:#e9d5ff!important}
+@media(min-width:700px){#adminPanelPage .admin-section-nav{width:280px!important;left:18px!important;top:110px!important;bottom:18px!important;max-height:calc(100dvh - 128px)!important}#adminPanelPage .admin-dashboard:has(.admin-section-nav.twofc-menu-collapsed) .admin-section{margin-left:300px!important;width:calc(100% - 300px)!important}}
+@media(max-width:699px){#adminPanelPage .admin-dashboard{padding:8px!important}#adminPanelPage .admin-dashboard>div.flex.justify-between.items-center.border-b{padding:10px!important}#adminPanelPage #twofcAdminIdentityControls button,#adminPanelPage .admin-dashboard>div.flex.justify-between.items-center.border-b>button.dark-btn{min-height:35px!important;padding:6px 9px!important;font-size:10px!important}#adminPanelPage .admin-section-nav{left:8px!important;top:82px!important;bottom:8px!important;width:min(265px,82vw)!important;max-height:calc(100dvh - 90px)!important}#adminPanelPage .admin-section{margin-top:10px!important}#adminPanelPage .admin-section button{max-width:100%!important}}
+@media(prefers-reduced-motion:reduce){#adminPanelPage *{transition:none!important}}
+</style></head>
 <body>
 <header class="site-header">
 <div class="brand-wrap" onclick="navigatePage('homePage')" style="cursor:pointer">
@@ -1014,6 +1036,11 @@ body.twofc-admin-only,body.twofc-admin-auth-ok{background:radial-gradient(circle
 </div>
 <!-- 2FC ADMIN AUTH GATE -->
 <div aria-live="polite" id="twofcAdminAuthGate">
+<div aria-label="2FC E-SPORTS official logo" class="twofc-login-shell-brand">
+<img alt="2FC E-SPORTS Logo" src="https://i.ibb.co.com/67w1npnb/IMG-20261005-WA0031.jpg"/>
+<span>2FC <b>E-SPORTS</b></span>
+<small>⚡ ELITE ADMIN PORTAL ⚡</small>
+</div>
 <div class="twofc-auth-card">
 <div class="twofc-auth-logo"><img alt="2FC" src="https://i.ibb.co.com/67w1npnb/IMG-20261005-WA0031.jpg"/></div>
 <div class="twofc-auth-title">2FC E-SPORTS</div>
@@ -1040,7 +1067,6 @@ body.twofc-admin-only,body.twofc-admin-auth-ok{background:radial-gradient(circle
 <p class="twofc-auth-message" id="twofcRegMessage"></p>
 </div>
 </div>
-
 </div>
 <div class="twofc-owner-modal hidden" id="twofcPasswordModal">
 <div class="twofc-owner-box" style="max-width:430px">
@@ -1067,7 +1093,7 @@ body.twofc-admin-only,body.twofc-admin-auth-ok{background:radial-gradient(circle
 <div class="page-section hidden" id="adminPanelPage">
 <div class="panel p-4 space-y-4 admin-dashboard">
 <div class="flex justify-between items-center border-b border-slate-700 pb-2">
-<div class="flex items-center gap-2"><button type="button" aria-label="Open profile menu" onclick="document.querySelector('#adminPanelPage .admin-section-nav')?.classList.toggle('twofc-menu-collapsed')" style="width:38px;height:38px;border-radius:12px;background:#fff;color:#713bc7;border:1px solid #eadffc;font-size:22px;font-weight:900">⋮</button><h3 class="font-bold text-sm"><i class="fa-solid fa-shield-halved text-cyan-300"></i> Admin Dashboard</h3></div>
+<div class="flex items-center gap-2"><button aria-label="Open profile menu" onclick="document.querySelector('#adminPanelPage .admin-section-nav')?.classList.toggle('twofc-menu-collapsed')" style="width:38px;height:38px;border-radius:12px;background:#fff;color:#713bc7;border:1px solid #eadffc;font-size:22px;font-weight:900" type="button">☰</button><h3 class="font-bold text-sm"><i class="fa-solid fa-shield-halved text-cyan-300"></i> Admin Dashboard</h3></div>
 <div class="flex items-center gap-2" id="twofcAdminIdentityControls">
 <span class="twofc-role-badge" id="twofcAdminRoleBadge">ADMIN</span>
 <button class="dark-btn hidden" id="twofcOwnerControlBtn" onclick="twofcOpenOwnerModal()" style="width:auto;padding:7px 12px;font-size:11px"><i class="fa-solid fa-user-shield"></i> Admin Control</button>
@@ -1241,10 +1267,10 @@ body.twofc-admin-only,body.twofc-admin-auth-ok{background:radial-gradient(circle
 </div>
 <div class="hidden space-y-3" id="balanceManagementAddPanel">
 <div class="flex justify-between items-center"><h5 class="font-bold text-xs text-emerald-300">Add Money</h5><button class="text-[10px] text-slate-400" onclick="resetBalanceManagement()" type="button">Back</button></div>
-<input class="field" id="adminBalanceSupportPin" placeholder="Support PIN">
+<input class="field" id="adminBalanceSupportPin" placeholder="Support PIN"/>
 <div class="grid grid-cols-2 gap-2"><input class="field" id="adminUserBalanceAmount" min="0" placeholder="Amount (৳)" type="number"/><button class="blue-btn" onclick="adminAddUserBalance()" type="button">Add User Balance</button></div>
 <div class="grid grid-cols-2 gap-2"><input class="field" id="adminEarnBalanceAmount" min="0" placeholder="Earning Amount (৳)" type="number"/><button class="blue-btn" onclick="adminAddEarnBalance()" type="button">Add Earning Balance</button></div>
-</input></div>
+</div>
 <div class="hidden space-y-3" id="balanceManagementMinusPanel">
 <div class="flex justify-between items-center"><h5 class="font-bold text-xs text-rose-300">Minus Money</h5><button class="text-[10px] text-slate-400" onclick="resetBalanceManagement()" type="button">Back</button></div>
 <input class="field" id="adminMinusBalanceSupportPin" placeholder="Support PIN"/>
@@ -1268,18 +1294,18 @@ body.twofc-admin-only,body.twofc-admin-auth-ok{background:radial-gradient(circle
 </div>
 </div>
 <div class="admin-section hidden" id="giftCodeManagementSection">
- <div class="bg-[#061326] p-4 rounded-xl border border-[#174262] space-y-3">
-  <div class="flex items-center justify-between gap-2"><div><h4 class="font-bold text-sm text-cyan-300 uppercase"><i class="fa-solid fa-gift"></i> Gift Code Management</h4><p class="text-[10px] text-slate-400 mt-1">Create a reward code, set the claim limit and expiry, and optionally restrict it to Support PINs.</p></div><span class="text-[10px] font-bold rounded-full px-3 py-1" style="background:#083b55;color:#7eeaff;border:1px solid #17658a">ADMIN</span></div>
-  <input type="hidden" id="adminGiftEditCode"/>
-  <div class="grid grid-cols-2 gap-2"><div><label class="block text-[10px] font-bold text-cyan-200 mb-1">Reward Amount (৳)</label><input class="field" id="adminGiftAmount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="e.g. 50"/></div><div><label class="block text-[10px] font-bold text-cyan-200 mb-1">User Claim Limit</label><input class="field" id="adminGiftLimit" type="number" min="1" step="1" inputmode="numeric" value="1" placeholder="Enter any number"/></div></div>
-  <div class="flex flex-wrap gap-1.5"><span class="text-[10px] text-slate-400 self-center mr-1">Quick limit:</span><button type="button" class="dark-btn" style="width:auto;padding:5px 10px" onclick="setAdminGiftLimit(1)">1</button><button type="button" class="dark-btn" style="width:auto;padding:5px 10px" onclick="setAdminGiftLimit(2)">2</button><button type="button" class="dark-btn" style="width:auto;padding:5px 10px" onclick="setAdminGiftLimit(5)">5</button><button type="button" class="dark-btn" style="width:auto;padding:5px 10px" onclick="setAdminGiftLimit(10)">10</button><button type="button" class="dark-btn" style="width:auto;padding:5px 10px" onclick="setAdminGiftLimit(20)">20</button></div>
-  <div><label class="block text-[10px] font-bold text-cyan-200 mb-1">Expiry Date &amp; Time</label><input class="field" id="adminGiftExpiry" type="datetime-local"/><p class="text-[10px] text-slate-500 mt-1">The code will stop working automatically after this time.</p></div>
-  <div><label class="block text-[10px] font-bold text-cyan-200 mb-1">Support PINs (Optional)</label><textarea class="field" id="adminGiftPins" rows="3" placeholder="Enter Support PINs separated by comma or new line"></textarea><p class="text-[10px] text-slate-500 mt-1">Only users whose Support PIN matches one of these can claim. The user limit is always the final maximum.</p></div>
-  <div class="grid grid-cols-2 gap-2"><button class="blue-btn" id="adminGiftGenerateBtn" onclick="saveAdminGiftCode()" type="button"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Gift Code</button><button class="dark-btn" onclick="resetAdminGiftForm()" type="button">Clear / New</button></div>
-  <div id="adminGiftGeneratedBox" class="hidden rounded-xl border border-emerald-500/40 bg-emerald-950/30 p-3"><p class="text-[10px] text-emerald-300 font-bold">GENERATED GIFT CODE</p><div class="flex items-center gap-2 mt-2"><strong id="adminGiftGeneratedCode" class="flex-1 text-lg tracking-widest text-white break-all"></strong><button class="dark-btn" style="width:auto;padding:7px 10px" onclick="copyAdminGiftCode()" type="button"><i class="fa-regular fa-copy"></i> Copy</button></div><p class="text-[10px] text-emerald-200 mt-2">The new code is saved. Enable it below when you are ready to share.</p></div>
-  <p id="adminGiftFormStatus" class="text-xs text-center min-h-[18px]" aria-live="polite"></p>
- </div>
- <div class="bg-[#061326] p-3 rounded-xl border border-[#174262] space-y-3 mt-3"><div class="flex justify-between items-center gap-2"><h4 class="font-bold text-xs text-cyan-300 uppercase">Gift Code History</h4><button class="text-[10px] text-cyan-300" onclick="loadAdminGiftCodes()" type="button">Refresh</button></div><div id="adminGiftCodeList" class="space-y-2"><p class="text-xs text-slate-400">Loading gift codes...</p></div></div>
+<div class="bg-[#061326] p-4 rounded-xl border border-[#174262] space-y-3">
+<div class="flex items-center justify-between gap-2"><div><h4 class="font-bold text-sm text-cyan-300 uppercase"><i class="fa-solid fa-gift"></i> Gift Code Management</h4><p class="text-[10px] text-slate-400 mt-1">Create a reward code, set the claim limit and expiry, and optionally restrict it to Support PINs.</p></div><span class="text-[10px] font-bold rounded-full px-3 py-1" style="background:#083b55;color:#7eeaff;border:1px solid #17658a">ADMIN</span></div>
+<input id="adminGiftEditCode" type="hidden"/>
+<div class="grid grid-cols-2 gap-2"><div><label class="block text-[10px] font-bold text-cyan-200 mb-1">Reward Amount (৳)</label><input class="field" id="adminGiftAmount" inputmode="decimal" min="0.01" placeholder="e.g. 50" step="0.01" type="number"/></div><div><label class="block text-[10px] font-bold text-cyan-200 mb-1">User Claim Limit</label><input class="field" id="adminGiftLimit" inputmode="numeric" min="1" placeholder="Enter any number" step="1" type="number" value="1"/></div></div>
+<div class="flex flex-wrap gap-1.5"><span class="text-[10px] text-slate-400 self-center mr-1">Quick limit:</span><button class="dark-btn" onclick="setAdminGiftLimit(1)" style="width:auto;padding:5px 10px" type="button">1</button><button class="dark-btn" onclick="setAdminGiftLimit(2)" style="width:auto;padding:5px 10px" type="button">2</button><button class="dark-btn" onclick="setAdminGiftLimit(5)" style="width:auto;padding:5px 10px" type="button">5</button><button class="dark-btn" onclick="setAdminGiftLimit(10)" style="width:auto;padding:5px 10px" type="button">10</button><button class="dark-btn" onclick="setAdminGiftLimit(20)" style="width:auto;padding:5px 10px" type="button">20</button></div>
+<div><label class="block text-[10px] font-bold text-cyan-200 mb-1">Expiry Date &amp; Time</label><input class="field" id="adminGiftExpiry" type="datetime-local"/><p class="text-[10px] text-slate-500 mt-1">The code will stop working automatically after this time.</p></div>
+<div><label class="block text-[10px] font-bold text-cyan-200 mb-1">Support PINs (Optional)</label><textarea class="field" id="adminGiftPins" placeholder="Enter Support PINs separated by comma or new line" rows="3"></textarea><p class="text-[10px] text-slate-500 mt-1">Only users whose Support PIN matches one of these can claim. The user limit is always the final maximum.</p></div>
+<div class="grid grid-cols-2 gap-2"><button class="blue-btn" id="adminGiftGenerateBtn" onclick="saveAdminGiftCode()" type="button"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Gift Code</button><button class="dark-btn" onclick="resetAdminGiftForm()" type="button">Clear / New</button></div>
+<div class="hidden rounded-xl border border-emerald-500/40 bg-emerald-950/30 p-3" id="adminGiftGeneratedBox"><p class="text-[10px] text-emerald-300 font-bold">GENERATED GIFT CODE</p><div class="flex items-center gap-2 mt-2"><strong class="flex-1 text-lg tracking-widest text-white break-all" id="adminGiftGeneratedCode"></strong><button class="dark-btn" onclick="copyAdminGiftCode()" style="width:auto;padding:7px 10px" type="button"><i class="fa-regular fa-copy"></i> Copy</button></div><p class="text-[10px] text-emerald-200 mt-2">The new code is saved. Enable it below when you are ready to share.</p></div>
+<p aria-live="polite" class="text-xs text-center min-h-[18px]" id="adminGiftFormStatus"></p>
+</div>
+<div class="bg-[#061326] p-3 rounded-xl border border-[#174262] space-y-3 mt-3"><div class="flex justify-between items-center gap-2"><h4 class="font-bold text-xs text-cyan-300 uppercase">Gift Code History</h4><button class="text-[10px] text-cyan-300" onclick="loadAdminGiftCodes()" type="button">Refresh</button></div><div class="space-y-2" id="adminGiftCodeList"><p class="text-xs text-slate-400">Loading gift codes...</p></div></div>
 </div>
 <div class="admin-section hidden" id="dollarRateSettingsSection">
 <div class="bg-[#061326] p-4 rounded-xl border border-[#174262] space-y-4">
@@ -2854,6 +2880,5 @@ async function saveAdminDollarRate(){
  window.deleteAdminGiftCode=async function(id){if(!confirm('Delete this entire gift code and its complete claim history? This cannot be undone.'))return;try{const claims=await window.getDocs(window.collection(window.db,'giftCodes',id,'claims'));for(const d of claims.docs){await window.deleteDoc(window.doc(window.db,'giftCodes',id,'claims',d.id));}await window.deleteDoc(window.doc(window.db,'giftCodes',id));await window.loadAdminGiftCodes();alert('Gift code and its claim history deleted.');}catch(e){alert('Could not fully delete gift code history: '+(e.message||e));}};
 })();
 </script>
-
 </body>
 </html>
