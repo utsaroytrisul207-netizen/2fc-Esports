@@ -596,7 +596,7 @@ body.twofc-admin-only{
 <style id="twofc-admin-premium-visual-only">
 /* Visual-only refresh: admin dashboard, navigation and existing Support PIN search. */
 body.twofc-admin-auth-ok { background:#f6f3ff !important; }
-#adminPanelPage { background:linear-gradient(180deg,#f7f4ff 0%,#ffffff 58%,#f5f1ff 100%) !important; min-height:100vh; padding:12px 10px 100px !important; }
+#adminPanelPage { background:linear-gradient(180deg,#f7f4ff 0%,#ffffff 58%,#f5f1ff 100%) !important; min-height:100vh; padding:12px 10px !important; }
 #adminPanelPage > .admin-dashboard { background:transparent !important; color:#28194b !important; border:0 !important; box-shadow:none !important; }
 #adminPanelPage .admin-dashboard > .flex.justify-between.items-center.border-b { background:linear-gradient(115deg,#6d36c9,#8d5be5) !important; color:#fff !important; border:0 !important; border-radius:20px !important; padding:15px !important; box-shadow:0 12px 28px rgba(91,49,170,.20) !important; }
 #adminPanelPage .admin-dashboard h3 { color:#fff !important; font-size:16px !important; letter-spacing:.2px; }
@@ -621,11 +621,6 @@ body.twofc-admin-auth-ok { background:#f6f3ff !important; }
 #adminPanelPage #memberSearchSection h4 { font-size:13px !important; color:#6639b1 !important; }
 #adminPanelPage #memberSearchSupportPin { background:#faf8ff !important; color:#302344 !important; border-color:#dfd1f6 !important; }
 #adminPanelPage .twofc-pending-money-badge { background:#fce7f3 !important; color:#be185d !important; }
-#adminPanelPage .twofc-admin-bottom-nav { position:fixed; z-index:9998; left:10px; right:10px; bottom:10px; display:grid; grid-template-columns:repeat(3,1fr); gap:7px; padding:8px; border:1px solid #e6daf9; border-radius:18px; background:rgba(255,255,255,.96); box-shadow:0 10px 30px rgba(60,34,105,.18); backdrop-filter:blur(12px); }
-#adminPanelPage .twofc-admin-bottom-nav button { min-height:46px; border:0; border-radius:12px; background:#f5efff; color:#6236aa; font-size:11px; font-weight:900; }
-#adminPanelPage .twofc-admin-bottom-nav button i { display:block; font-size:16px; margin-bottom:3px; }
-#adminPanelPage .twofc-admin-bottom-nav button:last-child { background:#6f3bc2; color:#fff; }
-#adminPanelPage .twofc-admin-bottom-nav button:active { transform:scale(.98); }
 #twofcAdminAuthGate .twofc-auth-card { background:#fff !important; color:#35234f !important; border:1px solid #e9defb !important; box-shadow:0 18px 55px rgba(74,42,130,.15) !important; border-radius:24px !important; }
 #twofcAdminAuthGate .twofc-auth-title { color:#6236aa !important; }
 #twofcAdminAuthGate .twofc-auth-sub { color:#8b79a5 !important; }
@@ -1255,11 +1250,6 @@ body.twofc-admin-auth-ok { background:#f6f3ff !important; }
 </div>
 </div>
 </div>
-<nav class="twofc-admin-bottom-nav" aria-label="Admin navigation">
-<button type="button" onclick="document.querySelector('#adminPanelPage .admin-section-nav')?.classList.remove('twofc-menu-collapsed');showAdminSection('memberDashboardSection',document.querySelector('#adminPanelPage .admin-section-btn'));loadMemberDashboard();window.scrollTo(0,0)"><i class="fa-solid fa-house"></i>Home</button>
-<button type="button" onclick="document.querySelector('#adminPanelPage .admin-section-nav')?.classList.remove('twofc-menu-collapsed');document.querySelector('#adminPanelPage .admin-section-nav')?.scrollIntoView({behavior:'smooth',block:'start'})"><i class="fa-solid fa-user-circle"></i>Profile</button>
-<button type="button" onclick="document.querySelector('#adminPanelPage .admin-section-nav')?.classList.remove('twofc-menu-collapsed');showAdminSection('memberSearchSection',document.querySelectorAll('#adminPanelPage .admin-section-btn')[8]);document.getElementById('memberSearchSection')?.scrollIntoView({behavior:'smooth',block:'start'})"><i class="fa-solid fa-headset"></i>Support PIN</button>
-</nav>
 </div>
 <div class="prize-modal-backdrop" id="prizeModal" onclick="if(event.target===this)closePrizeModal()">
 <div class="prize-modal">
