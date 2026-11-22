@@ -631,6 +631,47 @@ body.twofc-admin-only .bottom-nav { display:none !important; }
 @media(min-width:700px){#adminPanelPage .admin-section-nav{grid-template-columns:repeat(3,minmax(0,1fr))}#adminPanelPage{max-width:1100px;margin:0 auto}}
 </style>
 
+
+<style id="twofc-admin-login-premium-visual-only">
+/* Visual-only login treatment. No existing functions or handlers are changed. */
+/* Prevent public/tournament content from flashing before the auth gate is ready. */
+body:not(.twofc-admin-auth-ok) .page-section:not(#adminPanelPage),
+body:not(.twofc-admin-auth-ok) #adminPanelPage,
+body:not(.twofc-admin-auth-ok) .site-header,
+body:not(.twofc-admin-auth-ok) #profileBackdrop,
+body:not(.twofc-admin-auth-ok) #profileDrawer{display:none!important;visibility:hidden!important}
+body:not(.twofc-admin-auth-ok) #twofcAdminAuthGate{display:flex!important;visibility:visible!important}
+#twofcAdminAuthGate{
+  flex-direction:column!important;gap:15px!important;overflow-y:auto;
+  background:radial-gradient(ellipse at 50% 8%,rgba(139,92,246,.28),transparent 34%),
+    radial-gradient(ellipse at 12% 85%,rgba(217,119,6,.13),transparent 30%),
+    linear-gradient(145deg,#05040b 0%,#10091f 48%,#05040b 100%)!important;
+  padding:28px 16px!important;
+}
+.twofc-login-shell-brand{display:flex;flex-direction:column;align-items:center;gap:7px;color:#fff;text-align:center;filter:drop-shadow(0 8px 24px rgba(139,92,246,.25));}
+.twofc-login-shell-brand img{width:76px;height:76px;object-fit:cover;border-radius:23px;border:1px solid rgba(251,191,36,.8);box-shadow:0 0 0 5px rgba(139,92,246,.13),0 0 35px rgba(168,85,247,.35);}
+.twofc-login-shell-brand span{font-size:21px;letter-spacing:2px;font-weight:950;color:#fff;text-shadow:0 2px 18px rgba(167,139,250,.4)}
+.twofc-login-shell-brand span b{color:#fbbf24}
+.twofc-login-shell-brand small{font-size:9px;letter-spacing:3px;font-weight:900;color:#c4b5fd}
+#twofcAdminAuthGate .twofc-auth-card{position:relative;width:min(440px,100%);padding:27px 24px 24px!important;border-radius:27px!important;
+  background:linear-gradient(145deg,rgba(28,18,48,.98),rgba(10,8,20,.99))!important;
+  color:#f8fafc!important;border:1px solid rgba(196,181,253,.32)!important;
+  box-shadow:0 28px 90px rgba(0,0,0,.62),0 0 45px rgba(124,58,237,.17),inset 0 1px rgba(255,255,255,.09)!important;}
+#twofcAdminAuthGate .twofc-auth-card:before{content:"👑  PREMIUM ADMIN ACCESS  👑";display:block;text-align:center;color:#fbbf24;font-size:10px;font-weight:950;letter-spacing:2px;margin:0 0 17px;}
+#twofcAdminAuthGate .twofc-auth-logo{width:88px;height:88px;margin:0 auto 13px;border-radius:25px!important;border:2px solid rgba(251,191,36,.75)!important;box-shadow:0 0 0 5px rgba(139,92,246,.14),0 0 30px rgba(168,85,247,.25);}
+#twofcAdminAuthGate .twofc-auth-title{font-size:23px!important;font-weight:950!important;letter-spacing:1.2px;color:#fff!important;}
+#twofcAdminAuthGate .twofc-auth-sub{font-size:11px!important;font-weight:800;letter-spacing:1.5px;color:#c4b5fd!important;margin:5px 0 22px!important;}
+#twofcAdminAuthGate .twofc-auth-view h2{color:#f5d0fe!important;font-size:18px!important;font-weight:950!important;}
+#twofcAdminAuthGate .field{min-height:47px;padding:12px 14px!important;background:rgba(255,255,255,.07)!important;color:#fff!important;border:1px solid rgba(196,181,253,.28)!important;border-radius:14px!important;outline:none;}
+#twofcAdminAuthGate .field::placeholder{color:#c4b5d8!important;opacity:1}
+#twofcAdminAuthGate .field:focus{border-color:#c4b5fd!important;box-shadow:0 0 0 3px rgba(139,92,246,.2)!important;}
+#twofcAdminAuthGate .red-btn{min-height:48px;font-weight:950!important;letter-spacing:1px;color:#160d24!important;background:linear-gradient(105deg,#fbbf24,#f5d78e 45%,#c084fc)!important;border:1px solid rgba(255,255,255,.35)!important;border-radius:14px!important;box-shadow:0 10px 26px rgba(168,85,247,.23)!important;}
+#twofcAdminAuthGate .twofc-link-btn{color:#d8b4fe!important;text-decoration:none!important;font-weight:850!important;}
+#twofcAdminAuthGate .twofc-auth-note{color:#d1c5e4!important;}
+#twofcAdminAuthGate .twofc-auth-message{color:#fda4af!important;}
+@media(max-width:480px){#twofcAdminAuthGate{justify-content:center!important;padding:20px 13px!important}.twofc-login-shell-brand img{width:68px;height:68px}.twofc-login-shell-brand span{font-size:19px}#twofcAdminAuthGate .twofc-auth-card{padding:23px 18px!important}}
+</style>
+
 </head>
 <body>
 <header class="site-header">
@@ -966,6 +1007,11 @@ body.twofc-admin-only .bottom-nav { display:none !important; }
 </div>
 <!-- 2FC ADMIN AUTH GATE -->
 <div aria-live="polite" id="twofcAdminAuthGate">
+<div class="twofc-login-shell-brand" aria-label="2FC E-SPORTS official logo">
+  <img src="https://i.ibb.co.com/67w1npnb/IMG-20261005-WA0031.jpg" alt="2FC E-SPORTS Logo"/>
+  <span>2FC <b>E-SPORTS</b></span>
+  <small>⚡ ELITE ADMIN PORTAL ⚡</small>
+</div>
 <div class="twofc-auth-card">
 <div class="twofc-auth-logo"><img alt="2FC" src="https://i.ibb.co.com/67w1npnb/IMG-20261005-WA0031.jpg"/></div>
 <div class="twofc-auth-title">2FC E-SPORTS</div>
