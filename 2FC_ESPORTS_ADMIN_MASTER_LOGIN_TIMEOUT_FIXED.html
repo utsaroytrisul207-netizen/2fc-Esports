@@ -1093,15 +1093,11 @@ body:not(.twofc-admin-auth-ok) #twofcAdminAuthGate{display:flex!important;visibi
 <div class="page-section hidden" id="adminPanelPage">
 <div class="panel p-4 space-y-4 admin-dashboard">
 <div class="flex justify-between items-center border-b border-slate-700 pb-2">
-<div class="flex items-center gap-2"><button aria-label="Open profile menu" onclick="document.querySelector('#adminPanelPage .admin-section-nav')?.classList.toggle('twofc-menu-collapsed')" style="width:38px;height:38px;border-radius:12px;background:#fff;color:#713bc7;border:1px solid #eadffc;font-size:22px;font-weight:900" type="button">☰</button><h3 class="font-bold text-sm"><i class="fa-solid fa-shield-halved text-cyan-300"></i> Admin Dashboard</h3></div>
-<div class="flex items-center gap-2" id="twofcAdminIdentityControls">
-<span class="twofc-role-badge" id="twofcAdminRoleBadge">ADMIN</span>
-<button class="dark-btn hidden" id="twofcOwnerControlBtn" onclick="twofcOpenOwnerModal()" style="width:auto;padding:7px 12px;font-size:11px"><i class="fa-solid fa-user-shield"></i> Admin Control</button>
-<button class="dark-btn" onclick="twofcOpenPasswordModal()" style="width:auto;padding:7px 12px;font-size:11px">Change Password</button><button class="dark-btn" onclick="twofcAdminLogout()" style="width:auto;padding:7px 12px;font-size:11px">Logout</button>
-</div>
-<button class="dark-btn" onclick="navigatePage('homePage')" style="width:auto;padding:7px 12px;font-size:11px">Home</button>
-</div>
+<div class="twofc-admin-header-main"><div class="twofc-admin-title-row"><button aria-label="Open admin menu" id="twofcAdminMenuToggle" onclick="twofcAdminSidebarToggle()" style="width:42px;height:42px;border-radius:12px;background:#fff;color:#713bc7;border:1px solid #eadffc;font-size:22px;font-weight:900" type="button">≡</button><h3 class="font-bold text-sm"><i class="fa-solid fa-shield-halved text-cyan-300"></i> Admin Dashboard</h3></div>
+<div class="twofc-admin-profile-area" id="twofcAdminIdentityControls"><span class="twofc-role-badge" id="twofcAdminRoleBadge">ADMIN</span><button class="twofc-profile-toggle" id="twofcProfileToggle" type="button" aria-expanded="false"><i class="fa-solid fa-user-circle"></i> Profile <span class="twofc-profile-caret">⌄</span></button>
+<div class="twofc-profile-menu" id="twofcProfileMenu" aria-hidden="true"><button class="dark-btn hidden" id="twofcOwnerControlBtn" onclick="twofcOpenOwnerModal()" style="width:auto;padding:7px 12px;font-size:11px"><i class="fa-solid fa-user-shield"></i> Admin Control</button><button class="dark-btn" onclick="twofcOpenPasswordModal()" style="width:auto;padding:7px 12px;font-size:11px"><i class="fa-solid fa-key"></i> Change Password</button><button class="dark-btn" onclick="twofcAdminLogout()" style="width:auto;padding:7px 12px;font-size:11px"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div></div></div>
 <div class="admin-section-nav">
+<button class="twofc-admin-sidebar-close" type="button" aria-label="Close admin menu" onclick="twofcAdminSidebarClose()">×</button>
 <button class="admin-section-btn" onclick="showAdminSection('memberDashboardSection',this);loadMemberDashboard()"><i class="fa-solid fa-chart-line"></i> Dashboard</button>
 <button class="admin-section-btn active" onclick="showAdminSection('matchSettingSection',this)"><i class="fa-solid fa-gamepad"></i> Match Setting</button>
 <button class="admin-section-btn" onclick="showAdminSection('matchCategoryManagementSection',this);loadAdminMatchCategories()"><i class="fa-solid fa-layer-group"></i> Add Category</button>
@@ -2677,8 +2673,8 @@ window.twofcSavePassword=async()=>{
 window.twofcChangePassword=window.twofcOpenPasswordModal;
 window.twofcOpenOwnerModal=async()=>{if(twofcRole!=='owner')return;document.getElementById('twofcOwnerModal').classList.remove('hidden');await twofcLoadOwnerData()}
 window.twofcCloseOwnerModal=()=>document.getElementById('twofcOwnerModal').classList.add('hidden')
-async function twofcLoadOwnerData(){const reqBox=document.getElementById('twofcAdminRequestsList'),adminBox=document.getElementById('twofcAdminList');reqBox.innerHTML='<p class="text-xs text-slate-400">Loading...</p>';adminBox.innerHTML='';const rq=await window.getDocs(window.collection(window.db,'admin_requests'));const pending=[];rq.forEach(x=>{const d=x.data();if(d.status==='pending')pending.push({id:x.id,...d})});reqBox.innerHTML=pending.length?pending.map(d=>`<div class="twofc-admin-row"><div><strong>${esc(d.name||'Admin')}</strong><small>${esc(d.email||'')} • ${esc(d.phone||'')}</small></div><div class="flex gap-1"><button class="twofc-mini-btn" onclick="twofcApproveAdmin('${d.id}')">Approve</button><button class="twofc-mini-btn danger" onclick="twofcRejectAdmin('${d.id}')">Reject</button></div></div>`).join(''):'<p class="text-xs text-slate-500">No pending requests.</p>';const ar=await window.getDocs(window.collection(window.db,'admins'));let n=0;ar.forEach(x=>{const d=x.data();if(d.role==='admin'){n++;adminBox.innerHTML+=`<div class="twofc-admin-row"><div><strong>${esc(d.name||'Admin')}</strong><small>${esc(d.email||'')} • ${d.active?'Active':'Inactive'}</small></div><button class="twofc-mini-btn ${d.active?'danger':''}" onclick="twofcToggleAdmin('${x.id}',${!d.active})">${d.active?'Deactivate':'Activate'}</button></div>`}});if(!n)adminBox.innerHTML='<p class="text-xs text-slate-500">No ordinary admins yet.</p>'}
-window.twofcApproveAdmin=async uid=>{if(twofcRole!=='owner')return;await window.setDoc(window.doc(window.db,'admins',uid),{active:true,status:'approved',role:'admin',approvedAt:new Date().toISOString(),approvedBy:auth.currentUser.uid},{merge:true});await window.updateDoc(window.doc(window.db,'admin_requests',uid),{status:'approved',approvedAt:new Date().toISOString(),approvedBy:auth.currentUser.uid});await twofcLoadOwnerData()}
+async function twofcLoadOwnerData(){const reqBox=document.getElementById('twofcAdminRequestsList'),adminBox=document.getElementById('twofcAdminList');reqBox.innerHTML='<p class="text-xs text-slate-400">Loading...</p>';adminBox.innerHTML='';const rq=await window.getDocs(window.collection(window.db,'admin_requests'));const requestDataByUid={};const pending=[];rq.forEach(x=>{const d=x.data();requestDataByUid[x.id]=d;if(d.status==='pending')pending.push({id:x.id,...d})});reqBox.innerHTML=pending.length?pending.map(d=>`<div class="twofc-admin-row"><div><strong>${esc(d.name||'Admin')}</strong><small>${esc(d.email||'')} • ${esc(d.phone||'')}</small></div><div class="flex gap-1"><button class="twofc-mini-btn" onclick="twofcApproveAdmin('${d.id}')">Approve</button><button class="twofc-mini-btn danger" onclick="twofcRejectAdmin('${d.id}')">Reject</button></div></div>`).join(''):'<p class="text-xs text-slate-500">No pending requests.</p>';const ar=await window.getDocs(window.collection(window.db,'admins'));let n=0;ar.forEach(x=>{const d=x.data(),r=requestDataByUid[x.id]||{};if(d.role==='admin'){n++;const adminName=d.name||r.name||'Admin',adminEmail=d.email||r.email||'Email not available';adminBox.innerHTML+=`<div class="twofc-admin-row"><div><strong>${esc(adminName)}</strong><small>${esc(adminEmail)} • ${d.active?'Active':'Inactive'}</small></div><button class="twofc-mini-btn ${d.active?'danger':''}" onclick="twofcToggleAdmin('${x.id}',${!d.active})">${d.active?'Deactivate':'Activate'}</button></div>`}});if(!n)adminBox.innerHTML='<p class="text-xs text-slate-500">No ordinary admins yet.</p>'}
+window.twofcApproveAdmin=async uid=>{if(twofcRole!=='owner')return;const reqSnap=await window.getDoc(window.doc(window.db,'admin_requests',uid));const reqData=reqSnap.exists()?(reqSnap.data()||{}):{};await window.setDoc(window.doc(window.db,'admins',uid),{name:reqData.name||'',email:reqData.email||'',phone:reqData.phone||'',active:true,status:'approved',role:'admin',approvedAt:new Date().toISOString(),approvedBy:auth.currentUser.uid},{merge:true});await window.updateDoc(window.doc(window.db,'admin_requests',uid),{status:'approved',approvedAt:new Date().toISOString(),approvedBy:auth.currentUser.uid});await twofcLoadOwnerData()}
 window.twofcRejectAdmin=async uid=>{if(twofcRole!=='owner')return;await window.updateDoc(window.doc(window.db,'admin_requests',uid),{status:'rejected',rejectedAt:new Date().toISOString(),rejectedBy:auth.currentUser.uid});await window.setDoc(window.doc(window.db,'admins',uid),{active:false,status:'rejected',role:'admin'},{merge:true});await twofcLoadOwnerData()}
 window.twofcToggleAdmin=async(uid,active)=>{if(twofcRole!=='owner')return;await window.updateDoc(window.doc(window.db,'admins',uid),{active,status:active?'approved':'inactive',updatedAt:new Date().toISOString(),updatedBy:auth.currentUser.uid});await twofcLoadOwnerData()}
 function esc(v){return String(v??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]))}
@@ -2880,5 +2876,97 @@ async function saveAdminDollarRate(){
  window.deleteAdminGiftCode=async function(id){if(!confirm('Delete this entire gift code and its complete claim history? This cannot be undone.'))return;try{const claims=await window.getDocs(window.collection(window.db,'giftCodes',id,'claims'));for(const d of claims.docs){await window.deleteDoc(window.doc(window.db,'giftCodes',id,'claims',d.id));}await window.deleteDoc(window.doc(window.db,'giftCodes',id));await window.loadAdminGiftCodes();alert('Gift code and its claim history deleted.');}catch(e){alert('Could not fully delete gift code history: '+(e.message||e));}};
 })();
 </script>
+
+<style id="twofc-admin-sidebar-interaction-fix">
+#adminPanelPage .twofc-admin-sidebar-close{display:flex;align-items:center;justify-content:center;position:sticky;top:0;z-index:2;grid-column:1/-1;width:100%;min-height:42px;margin:0 0 4px;border:1px solid #e5d4ff;border-radius:12px;background:linear-gradient(120deg,#fff,#f5eaff);color:#7c3aed;font-size:26px;font-weight:900;box-shadow:0 4px 12px rgba(124,58,237,.12)}
+#adminPanelPage .twofc-admin-sidebar-close:active{transform:scale(.96)}
+@media(min-width:700px){#adminPanelPage .twofc-admin-sidebar-close{width:42px;position:sticky;justify-self:end;grid-column:1/-1}}
+</style>
+<script id="twofc-admin-sidebar-interaction-fix-script">
+(function(){
+  function nav(){return document.querySelector('#adminPanelPage .admin-section-nav')}
+  function menuBtn(){return document.getElementById('twofcAdminMenuToggle')}
+  window.twofcAdminSidebarToggle=function(){var n=nav();if(!n)return;var open=!n.classList.contains('twofc-menu-collapsed');if(open){n.classList.add('twofc-menu-collapsed')}else{n.classList.remove('twofc-menu-collapsed')}var b=menuBtn();if(b){b.textContent=open?'×':'⋮';b.setAttribute('aria-label',open?'Close admin menu':'Open admin menu')}};
+  window.twofcAdminSidebarClose=function(){var n=nav();if(n)n.classList.remove('twofc-menu-collapsed');var b=menuBtn();if(b){b.textContent='⋮';b.setAttribute('aria-label','Open admin menu')}};
+  document.addEventListener('click',function(e){var n=nav();if(!n||!n.classList.contains('twofc-menu-collapsed'))return;var section=e.target.closest('.admin-section-btn');if(section){setTimeout(window.twofcAdminSidebarClose,0);return;}var content=e.target.closest('#adminPanelPage .admin-section');if(content){window.twofcAdminSidebarClose();return;}var toggle=e.target.closest('#twofcAdminMenuToggle');if(!toggle&&!n.contains(e.target))window.twofcAdminSidebarClose();});
+})();
+</script>
+<style id="twofc-admin-profile-ui-only">
+#adminPanelPage .admin-dashboard > .flex.justify-between.items-center.border-b{display:block!important;padding:12px 13px!important;border:0!important;border-radius:20px!important;background:linear-gradient(120deg,#7136cf,#a14ef0 56%,#c57bff)!important;box-shadow:0 9px 24px rgba(113,54,207,.24)!important;color:#fff!important}
+#adminPanelPage .twofc-admin-header-main{display:flex;flex-direction:column;gap:12px;width:100%}
+#adminPanelPage .twofc-admin-title-row{display:flex;align-items:center;gap:11px;min-width:0}
+#adminPanelPage .twofc-admin-title-row h3{font-size:clamp(16px,4vw,20px)!important;line-height:1.2!important;font-weight:900!important;color:#fff!important;margin:0!important;white-space:nowrap}
+#adminPanelPage #twofcAdminMenuToggle{font-size:27px!important;letter-spacing:-2px!important;flex:0 0 48px;width:48px!important;height:48px!important;border-radius:16px!important;background:linear-gradient(145deg,#fff,#fff4d8)!important;color:#7c3aed!important;box-shadow:0 4px 14px rgba(60,20,120,.16)!important}
+#adminPanelPage .twofc-admin-profile-area{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;position:relative;width:100%}
+#adminPanelPage .twofc-role-badge{display:inline-flex!important;align-items:center;justify-content:center;min-height:38px;padding:8px 15px!important;border-radius:14px!important;background:linear-gradient(135deg,#ffe66b,#ffb52e 60%,#ff8d27)!important;color:#54269a!important;border:1px solid rgba(255,255,255,.6)!important;box-shadow:0 4px 14px rgba(255,173,35,.26)!important;font-size:14px!important;font-weight:1000!important;letter-spacing:1px!important}
+#adminPanelPage .twofc-profile-toggle{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:9px 15px;border:1px solid rgba(255,255,255,.75);border-radius:14px;background:linear-gradient(135deg,#fff,#f9eaff);color:#6325b6;font-weight:900;font-size:14px;box-shadow:0 5px 15px rgba(60,20,120,.13);transition:transform .18s,box-shadow .18s,background .18s}
+#adminPanelPage .twofc-profile-toggle:active,#adminPanelPage .twofc-profile-toggle[aria-expanded="true"]{transform:scale(1.05);background:linear-gradient(135deg,#ffe45e,#ffb32b)!important;color:#57248e!important;box-shadow:0 0 0 3px rgba(255,210,70,.2),0 7px 18px rgba(255,166,30,.25)!important}
+#adminPanelPage .twofc-profile-caret{font-size:17px;transition:transform .2s}#adminPanelPage .twofc-profile-toggle[aria-expanded="true"] .twofc-profile-caret{transform:rotate(180deg)}
+#adminPanelPage .twofc-profile-menu{display:none;position:absolute;right:0;top:calc(100% + 8px);z-index:100;min-width:min(230px,90vw);padding:9px;border-radius:16px;background:linear-gradient(145deg,#fff,#f8efff);border:1px solid #e5d2ff;box-shadow:0 15px 35px rgba(87,39,160,.23);gap:8px}
+#adminPanelPage .twofc-profile-menu.twofc-profile-open{display:flex;flex-direction:column}
+#adminPanelPage .twofc-profile-menu .dark-btn{width:100%!important;min-height:43px!important;display:flex!important;align-items:center;justify-content:flex-start!important;gap:8px!important;border-radius:12px!important;background:linear-gradient(135deg,#eee2ff,#fff)!important;color:#6126b8!important;border:1px solid #e1caff!important;font-weight:900!important}
+#adminPanelPage .twofc-profile-menu .dark-btn:active{transform:scale(1.04);background:linear-gradient(135deg,#ffec9a,#ffb943)!important;color:#6a2ca8!important}
+#adminPanelPage .twofc-profile-menu .dark-btn.hidden{display:none!important}
+@media(max-width:600px){#adminPanelPage .admin-dashboard > .flex.justify-between.items-center.border-b{padding:10px!important}#adminPanelPage .twofc-admin-profile-area{justify-content:flex-end}#adminPanelPage .twofc-profile-menu{right:0}}
+/* Requested fix: remove duplicate top Profile button; bottom navigation is the only Profile entry. */
+#adminPanelPage #twofcProfileToggle{display:none!important}
+#adminPanelPage .twofc-admin-profile-area{gap:0!important}
+</style>
+<script id="twofc-admin-profile-ui-only-script">
+(function(){
+  function button(){return document.getElementById('twofcProfileToggle')}
+  function menu(){return document.getElementById('twofcProfileMenu')}
+  function close(){var b=button(),m=menu();if(b)b.setAttribute('aria-expanded','false');if(m){m.classList.remove('twofc-profile-open');m.setAttribute('aria-hidden','true')}}
+  function toggle(){var b=button(),m=menu();if(!b||!m)return;var opened=b.getAttribute('aria-expanded')!=='true';b.setAttribute('aria-expanded',opened?'true':'false');m.classList.toggle('twofc-profile-open',opened);m.setAttribute('aria-hidden',opened?'false':'true')}
+  document.addEventListener('click',function(e){var b=button(),m=menu();if(!b||!m)return;if(e.target.closest('#twofcProfileToggle')){e.preventDefault();toggle();return}if(m.contains(e.target)){setTimeout(close,0);return}if(!e.target.closest('#twofcAdminIdentityControls'))close()});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')close()});
+})();
+</script>
+
+<style id="twofc-admin-bottom-home-profile-ui-only">
+/* UI-only admin bottom navigation and separate profile screen */
+body.twofc-admin-only #adminPanelPage{padding-bottom:94px!important}
+#twofcAdminBottomNav{display:none}
+body.twofc-admin-only #twofcAdminBottomNav{display:flex;position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:10050;gap:10px;padding:9px;border-radius:20px;background:linear-gradient(145deg,rgba(20,10,45,.96),rgba(50,22,82,.96));border:1px solid rgba(196,181,253,.35);box-shadow:0 10px 28px rgba(53,18,110,.35),inset 0 1px rgba(255,255,255,.12);backdrop-filter:blur(12px)}
+#twofcAdminBottomNav button{flex:1;min-height:56px;border:1px solid rgba(255,255,255,.18);border-radius:15px;display:flex;align-items:center;justify-content:center;gap:8px;flex-direction:row;font-size:14px;font-weight:900;letter-spacing:.2px;color:#e9ddff;background:linear-gradient(145deg,#29164a,#150b2b);transition:transform .16s,box-shadow .16s,background .16s,color .16s}
+#twofcAdminBottomNav button:active{transform:scale(.96)}
+#twofcAdminBottomNav button.active{color:#482078;background:linear-gradient(135deg,#ffe56d,#ffb52c,#ff9827);border-color:#fff2b8;box-shadow:0 0 0 2px rgba(255,206,61,.17),0 7px 20px rgba(255,175,35,.23)}
+#twofcAdminProfileScreen{display:none;position:fixed;inset:0;z-index:10040;overflow:auto;padding:16px 12px 100px;background:radial-gradient(ellipse at 10% 5%,rgba(255,198,54,.17),transparent 28%),linear-gradient(145deg,#f9f4ff,#fff 48%,#fff8e7);color:#42206e}
+#twofcAdminProfileScreen.show{display:block}
+#twofcAdminProfileScreen .profile-screen-shell{width:min(700px,100%);margin:0 auto;border:1px solid #ead8ff;border-radius:24px;background:rgba(255,255,255,.93);box-shadow:0 14px 40px rgba(110,57,185,.15);overflow:hidden}
+#twofcAdminProfileScreen .profile-screen-header{display:flex;align-items:center;gap:12px;padding:16px;background:linear-gradient(115deg,#7036c7,#a25af0,#c99bff);color:#fff}
+#twofcAdminProfileScreen .profile-screen-back{width:44px;height:44px;border:1px solid rgba(255,255,255,.65);border-radius:13px;background:rgba(255,255,255,.18);color:#fff;font-size:23px;font-weight:900;display:grid;place-items:center}
+#twofcAdminProfileScreen .profile-screen-title{font-size:20px;font-weight:950;letter-spacing:.3px}
+#twofcAdminProfileScreen .profile-screen-role{margin:16px;padding:16px;border-radius:18px;background:linear-gradient(130deg,#fff3c1,#ffd36a,#ffae3b);color:#6229a4;font-size:18px;font-weight:1000;letter-spacing:1.3px;box-shadow:0 6px 18px rgba(255,180,48,.18)}
+#twofcAdminProfileScreen .profile-screen-actions{display:flex;flex-direction:column;gap:10px;padding:0 16px 18px}
+#twofcAdminProfileScreen .profile-screen-actions button{width:100%!important;min-height:52px!important;border-radius:15px!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:11px!important;padding:12px 16px!important;font-size:14px!important;font-weight:950!important;color:#5b258e!important;background:linear-gradient(120deg,#fff,#f5eaff)!important;border:1px solid #e4ceff!important;box-shadow:0 4px 13px rgba(105,55,175,.08)!important;transition:transform .16s,box-shadow .16s,background .16s!important}
+#twofcAdminProfileScreen .profile-screen-actions button:active{transform:scale(.98)!important;background:linear-gradient(120deg,#ffed9e,#ffb940)!important;box-shadow:0 0 0 3px rgba(255,201,53,.15)!important}
+#twofcAdminProfileScreen .profile-screen-actions button.hidden{display:none!important}
+#twofcAdminProfileScreen .profile-screen-actions button i{width:20px;text-align:center}
+@media(min-width:700px){body.twofc-admin-only #twofcAdminBottomNav{left:50%;right:auto;transform:translateX(-50%);width:min(520px,calc(100% - 24px))}#twofcAdminProfileScreen{padding-top:24px}}
+</style>
+<script id="twofc-admin-bottom-home-profile-ui-only-script">
+(function(){
+ function init(){
+  var admin=document.getElementById('adminPanelPage');if(!admin||document.getElementById('twofcAdminBottomNav'))return;
+  var nav=document.createElement('nav');nav.id='twofcAdminBottomNav';nav.setAttribute('aria-label','Admin bottom navigation');
+  nav.innerHTML='<button type="button" data-view="home" class="active"><i class="fa-solid fa-house"></i><span>Home</span></button><button type="button" data-view="profile"><i class="fa-solid fa-user"></i><span>Profile</span></button>';
+  document.body.appendChild(nav);
+  var profile=document.createElement('section');profile.id='twofcAdminProfileScreen';profile.setAttribute('aria-hidden','true');
+  profile.innerHTML='<div class="profile-screen-shell"><header class="profile-screen-header"><button type="button" class="profile-screen-back" aria-label="Back to Home">←</button><div class="profile-screen-title">👤 Admin Profile</div></header><div class="profile-screen-role" id="twofcAdminProfileRole">👑 ADMIN PROFILE</div><div class="profile-screen-actions" id="twofcAdminProfileActions"></div></div>';
+  document.body.appendChild(profile);
+  var actions=profile.querySelector('#twofcAdminProfileActions');
+  var original=document.getElementById('twofcProfileMenu');
+  if(original){Array.prototype.forEach.call(original.querySelectorAll('button'),function(btn){var clone=btn.cloneNode(true);clone.removeAttribute('id');clone.setAttribute('data-source-id',btn.id||'');clone.classList.remove('dark-btn');clone.classList.add('profile-action-btn');actions.appendChild(clone);});}
+  function setView(view){var home=view==='home';profile.classList.toggle('show',!home);profile.setAttribute('aria-hidden',home?'true':'false');nav.querySelectorAll('button').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-view')===view)});if(!home){var badge=document.getElementById('twofcAdminRoleBadge');var role=(badge&&badge.textContent||'ADMIN').trim().toUpperCase();profile.querySelector('#twofcAdminProfileRole').textContent='👑 '+role+' PROFILE';actions.querySelectorAll('[data-source-id]').forEach(function(clone){var source=document.getElementById(clone.getAttribute('data-source-id'));if(source){clone.classList.toggle('hidden',source.classList.contains('hidden'));clone.disabled=source.disabled;}});}}
+  nav.addEventListener('click',function(e){var b=e.target.closest('button[data-view]');if(!b)return;var view=b.getAttribute('data-view');setView(view);if(view==='home'){var dashboardBtn=admin.querySelector('.admin-section-btn[onclick*=\"memberDashboardSection\"]');if(dashboardBtn)dashboardBtn.click();}});
+  profile.querySelector('.profile-screen-back').addEventListener('click',function(){setView('home')});actions.addEventListener('click',function(e){/* stay on Profile after opening Admin Control or Change Password; only explicit Back/Home returns */});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&profile.classList.contains('show')&&!document.querySelector('.twofc-owner-modal:not(.hidden)'))setView('home')});
+  setView('home');
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
+
 </body>
 </html>
