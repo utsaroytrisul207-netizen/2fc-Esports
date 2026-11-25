@@ -5,11 +5,9 @@ import admin from 'firebase-admin';
 import crypto from 'node:crypto';
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT || 3000);
 
-// ===============================
-// 2FC E-SPORTS OTP SECURITY
-// ===============================
 const OTP_TTL_MS = 5 * 60_000;
 const RESEND_COOLDOWN_MS = 60_000;
 const RESET_SESSION_TTL_MS = 10 * 60_000;
@@ -17,9 +15,6 @@ const MAX_OTP_ATTEMPTS = 5;
 const REQUEST_WINDOW_MS = 10 * 60_000;
 const MAX_REQUESTS_PER_WINDOW = 10;
 
-// ===============================
-// HELPERS
-// ===============================
 function required(name) {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
@@ -79,9 +74,7 @@ function validHttpUrl(value) {
   }
 }
 
-// ===============================
 // EXPRESS SECURITY
-// ===============================
 app.disable('x-powered-by');
 
 app.use(cors({
@@ -102,9 +95,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ===============================
 // FIREBASE ADMIN
-// ===============================
 if (!admin.apps.length) {
   const serviceAccountJson =
     process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
@@ -132,10 +123,7 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 const auth = admin.auth();
 
-// ===============================
 // OWNER / ADMIN AUTHORIZATION
-// OWNER_UID must be configured in the Render environment.
-// ===============================
 const OWNER_UID = String(process.env.OWNER_UID || '').trim();
 
 async function authenticateFirebaseUser(req, res, next) {
@@ -152,7 +140,6 @@ async function authenticateFirebaseUser(req, res, next) {
       });
     }
 
-    // Check token signature, expiry, and revocation status.
     req.firebaseUser = await auth.verifyIdToken(idToken, true);
     return next();
   } catch (error) {
@@ -194,7 +181,7 @@ async function requireAdminOrOwner(req, res, next) {
     if (
       !adminSnap.exists ||
       adminData.active !== true ||
-      String(adminData.role || '').toLowerCase() === 'owner'
+      String(adminData.role || '').trim().toLowerCase() !== 'admin'
     ) {
       return res.status(403).json({
         ok: false,
@@ -233,25 +220,17 @@ async function requireOwner(req, res, next) {
   return next();
 }
 
-// ===============================
 // RESEND EMAIL API
-// ===============================
 const resendApiKey = required('RESEND_API_KEY');
 const resendFrom = required('RESEND_FROM');
 
-// ===============================
 // MEMORY STORES
-// ===============================
 const otpStore = new Map();
 const requestRateStore = new Map();
 
-// ===============================
 // RATE LIMIT
-// ===============================
 function getClientIp(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) return String(forwarded).split(',')[0].trim();
-  return req.ip || 'unknown';
+  return String(req.ip || req.socket?.remoteAddress || 'unknown');
 }
 
 function checkRequestRate(req) {
@@ -270,22 +249,18 @@ function checkRequestRate(req) {
   return record.count <= MAX_REQUESTS_PER_WINDOW;
 }
 
-// ===============================
 // CLEANUP
-// ===============================
 function cleanupExpired() {
   const currentTime = now();
 
   for (const [email, record] of otpStore) {
-    const otpExpired =
-      record.otpExpiresAt > 0 &&
-      record.otpExpiresAt <= currentTime;
+    const otpStillActive =
+      Number(record.otpExpiresAt || 0) > currentTime;
 
-    const resetExpired =
-      !record.resetExpiresAt ||
-      record.resetExpiresAt <= currentTime;
+    const resetStillActive =
+      Number(record.resetExpiresAt || 0) > currentTime;
 
-    if (otpExpired && resetExpired) {
+    if (!otpStillActive && !resetStillActive) {
       otpStore.delete(email);
     }
   }
@@ -299,9 +274,7 @@ function cleanupExpired() {
 
 setInterval(cleanupExpired, 60_000).unref();
 
-// ===============================
 // SEND OTP EMAIL THROUGH RESEND
-// ===============================
 async function sendOtpEmail(email, otp) {
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -345,9 +318,7 @@ async function sendOtpEmail(email, otp) {
   }
 }
 
-// ===============================
 // HEALTH CHECK
-// ===============================
 app.get('/health', (req, res) => {
   res.json({
     ok: true,
@@ -355,9 +326,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// ===============================
 // AUTHENTICATED SESSION CHECKS
-// ===============================
 app.get(
   '/api/admin/session',
   authenticateFirebaseUser,
@@ -384,14 +353,9 @@ app.get(
   }
 );
 
-// ===============================
 // FIREBASE CLOUD MESSAGING PUSH SENDER
-// Blank PIN = recipients selected by Admin Panel
-// PIN = only matching recipients
-// ===============================
 app.post('/api/push/send', authenticateFirebaseUser, requireAdminOrOwner, async (req, res) => {
 
-  // DEBUG: PUSH REQUEST
   console.log('[PUSH] Request received:', {
     time: new Date().toISOString(),
     recipientCount: Array.isArray(req.body?.recipients)
@@ -442,7 +406,6 @@ app.post('/api/push/send', authenticateFirebaseUser, requireAdminOrOwner, async 
       });
     }
 
-    // Deduplicate recipient email + notification ID pairs.
     const recipientMap = new Map();
 
     for (const item of recipients) {
@@ -463,7 +426,6 @@ app.post('/api/push/send', authenticateFirebaseUser, requireAdminOrOwner, async 
       });
     }
 
-    // Load only requested user documents.
     const recipientRows = [...recipientMap.entries()];
 
     const userSnaps = await Promise.all(
@@ -480,7 +442,6 @@ app.post('/api/push/send', authenticateFirebaseUser, requireAdminOrOwner, async 
 
       if (!userSnap.exists) continue;
 
-      // Check Support PIN if supplied.
       if (supportPins.length) {
         const userData = userSnap.data() || {};
 
@@ -596,7 +557,6 @@ app.post('/api/push/send', authenticateFirebaseUser, requireAdminOrOwner, async 
       tokenRefs.push(row.userSnap.ref);
     }
 
-    // DEBUG: TOKEN CHECK
     console.log('[PUSH] Prepared messages:', {
       selectedUsers: selectedUsers.length,
       messagesWithFcmToken: messages.length,
@@ -616,12 +576,10 @@ app.post('/api/push/send', authenticateFirebaseUser, requireAdminOrOwner, async 
       });
     }
 
-    // SEND TO FIREBASE
     const results = await Promise.allSettled(
       messages.map(item => admin.messaging().send(item))
     );
 
-    // DEBUG: FIREBASE RESPONSE
     console.log('[PUSH] Firebase send results:', {
       total: results.length,
       success: results.filter(
@@ -676,7 +634,6 @@ app.post('/api/push/send', authenticateFirebaseUser, requireAdminOrOwner, async 
       console.log('[PUSH] Invalid FCM tokens cleaned:', cleanup.length);
     }
 
-    // DEBUG: FINAL SUMMARY
     console.log('[PUSH] Final summary:', {
       sent,
       failed,
@@ -710,9 +667,7 @@ app.post('/api/push/send', authenticateFirebaseUser, requireAdminOrOwner, async 
   }
 });
 
-// ===============================
 // REQUEST OTP
-// ===============================
 app.post('/api/password-otp/request', async (req, res) => {
   try {
     if (!checkRequestRate(req)) {
@@ -794,9 +749,7 @@ app.post('/api/password-otp/request', async (req, res) => {
   }
 });
 
-// ===============================
 // VERIFY OTP
-// ===============================
 app.post('/api/password-otp/verify', async (req, res) => {
   try {
     if (!checkRequestRate(req)) {
@@ -881,9 +834,7 @@ app.post('/api/password-otp/verify', async (req, res) => {
   }
 });
 
-// ===============================
 // RESET PASSWORD
-// ===============================
 app.post('/api/password-otp/reset', async (req, res) => {
   try {
     if (!checkRequestRate(req)) {
@@ -998,9 +949,7 @@ app.post('/api/password-otp/reset', async (req, res) => {
   }
 });
 
-// ===============================
 // ERROR HANDLER
-// ===============================
 app.use((err, req, res, next) => {
   console.error('Unhandled server error:', err);
 
@@ -1010,9 +959,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ===============================
 // START SERVER
-// ===============================
 app.listen(PORT, () => {
   console.log(`2FC E-SPORTS OTP backend running on port ${PORT}`);
 });
