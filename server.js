@@ -133,6 +133,107 @@ const db = admin.firestore();
 const auth = admin.auth();
 
 // ===============================
+// OWNER / ADMIN AUTHORIZATION
+// OWNER_UID must be configured in the Render environment.
+// ===============================
+const OWNER_UID = String(process.env.OWNER_UID || '').trim();
+
+async function authenticateFirebaseUser(req, res, next) {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    const idToken = authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7).trim()
+      : '';
+
+    if (!idToken) {
+      return res.status(401).json({
+        ok: false,
+        message: 'Firebase authentication required.'
+      });
+    }
+
+    // Check token signature, expiry, and revocation status.
+    req.firebaseUser = await auth.verifyIdToken(idToken, true);
+    return next();
+  } catch (error) {
+    console.warn('[AUTH] Firebase token rejected:', error?.code || error?.message);
+    return res.status(401).json({
+      ok: false,
+      message: 'Invalid or expired authentication token.'
+    });
+  }
+}
+
+async function requireAdminOrOwner(req, res, next) {
+  try {
+    if (!OWNER_UID) {
+      console.error('[AUTH] OWNER_UID is not configured. Admin access is disabled.');
+      return res.status(503).json({
+        ok: false,
+        message: 'Server owner security is not configured.'
+      });
+    }
+
+    const uid = String(req.firebaseUser?.uid || '');
+
+    if (!uid) {
+      return res.status(401).json({
+        ok: false,
+        message: 'Firebase authentication required.'
+      });
+    }
+
+    if (uid === OWNER_UID) {
+      req.authRole = 'owner';
+      return next();
+    }
+
+    const adminSnap = await db.collection('admins').doc(uid).get();
+    const adminData = adminSnap.exists ? (adminSnap.data() || {}) : {};
+
+    if (
+      !adminSnap.exists ||
+      adminData.active !== true ||
+      String(adminData.role || '').toLowerCase() === 'owner'
+    ) {
+      return res.status(403).json({
+        ok: false,
+        message: 'Active admin access required.'
+      });
+    }
+
+    req.authRole = 'admin';
+    return next();
+  } catch (error) {
+    console.error('[AUTH] Admin authorization error:', error);
+    return res.status(500).json({
+      ok: false,
+      message: 'Could not verify admin permissions.'
+    });
+  }
+}
+
+async function requireOwner(req, res, next) {
+  if (!OWNER_UID) {
+    console.error('[AUTH] OWNER_UID is not configured. Owner access is disabled.');
+    return res.status(503).json({
+      ok: false,
+      message: 'Server owner security is not configured.'
+    });
+  }
+
+  if (String(req.firebaseUser?.uid || '') !== OWNER_UID) {
+    return res.status(403).json({
+      ok: false,
+      message: 'Owner access only.'
+    });
+  }
+
+  req.authRole = 'owner';
+  return next();
+}
+
+// ===============================
 // RESEND EMAIL API
 // ===============================
 const resendApiKey = required('RESEND_API_KEY');
@@ -181,10 +282,10 @@ function cleanupExpired() {
       record.otpExpiresAt <= currentTime;
 
     const resetExpired =
-      !record.resetExpiresAt ||
+      record.resetExpiresAt > 0 &&
       record.resetExpiresAt <= currentTime;
 
-    if (otpExpired && resetExpired) {
+    if (otpExpired || resetExpired) {
       otpStore.delete(email);
     }
   }
@@ -255,11 +356,40 @@ app.get('/health', (req, res) => {
 });
 
 // ===============================
+// AUTHENTICATED SESSION CHECKS
+// ===============================
+app.get(
+  '/api/admin/session',
+  authenticateFirebaseUser,
+  requireAdminOrOwner,
+  (req, res) => {
+    return res.json({
+      ok: true,
+      uid: req.firebaseUser.uid,
+      role: req.authRole
+    });
+  }
+);
+
+app.get(
+  '/api/owner/security-check',
+  authenticateFirebaseUser,
+  requireOwner,
+  (req, res) => {
+    return res.json({
+      ok: true,
+      owner: true,
+      uid: req.firebaseUser.uid
+    });
+  }
+);
+
+// ===============================
 // FIREBASE CLOUD MESSAGING PUSH SENDER
 // Blank PIN = recipients selected by Admin Panel
 // PIN = only matching recipients
 // ===============================
-app.post('/api/push/send', async (req, res) => {
+app.post('/api/push/send', authenticateFirebaseUser, requireAdminOrOwner, async (req, res) => {
 
   // DEBUG: PUSH REQUEST
   console.log('[PUSH] Request received:', {
@@ -276,38 +406,7 @@ app.post('/api/push/send', async (req, res) => {
   });
 
   try {
-    const authHeader = String(req.headers.authorization || '');
-
-    const idToken = authHeader.startsWith('Bearer ')
-      ? authHeader.slice(7).trim()
-      : '';
-
-    if (!idToken) {
-      console.warn('[PUSH] Rejected: Admin authentication missing.');
-
-      return res.status(401).json({
-        ok: false,
-        message: 'Admin authentication required.'
-      });
-    }
-
-    const decoded = await auth.verifyIdToken(idToken);
-
-    console.log('[PUSH] Admin token verified:', decoded.uid);
-
-    const adminSnap = await db
-      .collection('admins')
-      .doc(decoded.uid)
-      .get();
-
-    if (!adminSnap.exists || adminSnap.data()?.active !== true) {
-      console.warn('[PUSH] Rejected: admin is missing or inactive.');
-
-      return res.status(403).json({
-        ok: false,
-        message: 'Active admin access required.'
-      });
-    }
+    console.log('[PUSH] Authorized sender:', req.firebaseUser.uid, req.authRole);
 
     const title = String(req.body?.title || '')
       .trim()
