@@ -274,6 +274,7 @@ function cleanupExpired() {
 
 setInterval(cleanupExpired, 60_000).unref();
 
+
 // SEND OTP EMAIL THROUGH RESEND
 async function sendOtpEmail(email, otp) {
   const response = await fetch('https://api.resend.com/emails', {
@@ -294,15 +295,66 @@ async function sendOtpEmail(email, otp) {
         `If you did not request this password reset, you can ignore this email.`,
 
       html: `
-        <div style="font-family:Arial,sans-serif;line-height:1.5;max-width:600px;margin:auto;padding:20px">
-          <h2>2FC E-SPORTS — Password Reset</h2>
-          <p>Your 6-digit password reset OTP is:</p>
-          <div style="font-size:32px;font-weight:800;letter-spacing:8px;margin:20px 0">${otp}</div>
-          <p>This OTP is valid for <b>5 minutes</b>.</p>
-          <p>After 5 wrong attempts, the current OTP becomes invalid.</p>
-          <p>If you did not request this password reset, you can safely ignore this email.</p>
-          <hr>
-          <p style="font-size:12px;color:#777">2FC E-SPORTS Security System</p>
+        <div style="margin:0;padding:28px 12px;background:#f3f5fa;font-family:Arial,Helvetica,sans-serif;color:#202638;">
+          <div style="max-width:560px;margin:0 auto;">
+
+            <div style="padding:22px 24px;text-align:center;background:#17213b;border-radius:14px 14px 0 0;">
+              <div style="font-size:25px;line-height:1.2;font-weight:800;letter-spacing:1px;color:#ffffff;">
+                2FC E-SPORTS
+              </div>
+              <div style="margin-top:6px;font-size:12px;letter-spacing:2px;color:#c8d2ee;">
+                ACCOUNT SECURITY
+              </div>
+            </div>
+
+            <div style="padding:30px 26px;background:#ffffff;border:1px solid #e4e8f1;border-top:0;border-radius:0 0 14px 14px;">
+
+              <h2 style="margin:0 0 10px;text-align:center;font-size:23px;line-height:1.35;color:#202a44;">
+                Password Reset
+              </h2>
+
+              <p style="margin:0 0 24px;text-align:center;font-size:15px;line-height:1.6;color:#606b80;">
+                Use the verification code below to reset your 2FC E-SPORTS password.
+              </p>
+
+              <div style="padding:22px 12px;text-align:center;background:#f3f1ff;border:1px solid #ded8ff;border-radius:12px;">
+
+                <div style="margin-bottom:10px;font-size:12px;font-weight:700;letter-spacing:1.4px;color:#6553b8;">
+                  YOUR 6-DIGIT OTP
+                </div>
+
+                <div style="font-size:34px;line-height:1.3;font-weight:800;letter-spacing:9px;color:#34276f;">
+                  ${otp}
+                </div>
+
+              </div>
+
+              <div style="margin:18px 0 0;padding:13px 16px;text-align:center;background:#eef5ff;border-radius:9px;color:#315b91;font-size:14px;line-height:1.5;">
+                This OTP is valid for <strong>5 minutes</strong>.
+              </div>
+
+              <div style="margin-top:18px;padding:14px 16px;background:#fff8e9;border:1px solid #f3e1b8;border-radius:9px;color:#75551b;font-size:14px;line-height:1.6;">
+                <strong>Security notice:</strong>
+                After 5 wrong attempts, the current OTP becomes invalid.
+              </div>
+
+              <p style="margin:22px 0 0;font-size:14px;line-height:1.7;color:#606b80;">
+                If you did not request this password reset, you can safely ignore this email.
+              </p>
+
+              <div style="height:1px;margin:24px 0 14px;background:#e7eaf1;"></div>
+
+              <p style="margin:0;text-align:center;font-size:12px;line-height:1.6;color:#8790a2;">
+                2FC E-SPORTS Security System
+              </p>
+
+            </div>
+
+            <p style="margin:14px 0 0;text-align:center;font-size:11px;color:#9aa2b1;">
+              This is an automated security email. Please do not reply.
+            </p>
+
+          </div>
         </div>`
     })
   });
