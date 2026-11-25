@@ -282,10 +282,10 @@ function cleanupExpired() {
       record.otpExpiresAt <= currentTime;
 
     const resetExpired =
-      record.resetExpiresAt > 0 &&
+      !record.resetExpiresAt ||
       record.resetExpiresAt <= currentTime;
 
-    if (otpExpired || resetExpired) {
+    if (otpExpired && resetExpired) {
       otpStore.delete(email);
     }
   }
