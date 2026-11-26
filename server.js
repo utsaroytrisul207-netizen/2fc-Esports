@@ -1,19 +1,16 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import nodemailer from 'nodemailer';
 import admin from 'firebase-admin';
 import crypto from 'node:crypto';
 
 const app = express();
-app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT || 3000);
-
-const OTP_TTL_MS = 5 * 60_000;
+const OTP_TTL_MS = 60_000;
 const RESEND_COOLDOWN_MS = 60_000;
 const RESET_SESSION_TTL_MS = 10 * 60_000;
 const MAX_OTP_ATTEMPTS = 5;
-const REQUEST_WINDOW_MS = 10 * 60_000;
-const MAX_REQUESTS_PER_WINDOW = 10;
 
 function required(name) {
   const value = process.env[name];
@@ -22,10 +19,59 @@ function required(name) {
 }
 
 function parseAllowedOrigins() {
-  const raw = process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || '*';
-  if (raw === '*') return true;
-  return raw.split(',').map(value => value.trim()).filter(Boolean);
+  const raw = process.env.ALLOWED_ORIGINS || '*';
+  return raw === '*' ? true : raw.split(',').map(v => v.trim()).filter(Boolean);
 }
+
+app.disable('x-powered-by');
+app.use(cors({
+  origin: parseAllowedOrigins(),
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400
+}));
+app.use(express.json({ limit: '20kb' }));
+
+// Small security-header layer without adding another npm dependency.
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
+
+// Firebase Admin initialization.
+// Prefer FIREBASE_SERVICE_ACCOUNT_JSON in the server .env.
+// Never put this credential in either HTML file.
+if (!admin.apps.length) {
+  const serviceAccountJson = required('FIREBASE_SERVICE_ACCOUNT_JSON');
+  let serviceAccount;
+  try {
+    serviceAccount = JSON.parse(serviceAccountJson);
+  } catch {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON.');
+  }
+
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+}
+
+const db = admin.firestore();
+const auth = admin.auth();
+
+const gmailUser = required('GMAIL_USER');
+const gmailAppPassword = required('GMAIL_APP_PASSWORD');
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: gmailUser,
+    pass: gmailAppPassword
+  }
+});
+
+const otpStore = new Map();
 
 function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
@@ -43,14 +89,6 @@ function hash(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
-function safeEqual(a, b) {
-  if (!a || !b) return false;
-  const aa = Buffer.from(String(a), 'utf8');
-  const bb = Buffer.from(String(b), 'utf8');
-  if (aa.length !== bb.length) return false;
-  return crypto.timingSafeEqual(aa, bb);
-}
-
 function randomToken() {
   return crypto.randomBytes(32).toString('hex');
 }
@@ -59,818 +97,223 @@ function now() {
   return Date.now();
 }
 
-function parseSupportPins(value) {
-  const values = Array.isArray(value) ? value : String(value || '').split(',');
-  return [...new Set(values.map(pin => String(pin).trim()).filter(Boolean))];
-}
-
-function validHttpUrl(value) {
-  if (!value) return true;
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
-// EXPRESS SECURITY
-app.disable('x-powered-by');
-
-app.use(cors({
-  origin: parseAllowedOrigins(),
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  maxAge: 86400
-}));
-
-app.use(express.json({ limit: '20kb' }));
-
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('Referrer-Policy', 'no-referrer');
-  res.setHeader('Cache-Control', 'no-store');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-  next();
-});
-
-// FIREBASE ADMIN
-if (!admin.apps.length) {
-  const serviceAccountJson =
-    process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
-    process.env.FIREBASE_SERVICE_ACCOUNT;
-
-  if (!serviceAccountJson) {
-    throw new Error(
-      'Missing required environment variable: FIREBASE_SERVICE_ACCOUNT_JSON (or FIREBASE_SERVICE_ACCOUNT)'
-    );
-  }
-
-  let serviceAccount;
-
-  try {
-    serviceAccount = JSON.parse(serviceAccountJson);
-  } catch {
-    throw new Error('Firebase service account environment variable is not valid JSON.');
-  }
-
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  });
-}
-
-const db = admin.firestore();
-const auth = admin.auth();
-
-// OWNER / ADMIN AUTHORIZATION
-const OWNER_UID = String(process.env.OWNER_UID || '').trim();
-
-async function authenticateFirebaseUser(req, res, next) {
-  try {
-    const authHeader = String(req.headers.authorization || '');
-    const idToken = authHeader.startsWith('Bearer ')
-      ? authHeader.slice(7).trim()
-      : '';
-
-    if (!idToken) {
-      return res.status(401).json({
-        ok: false,
-        message: 'Firebase authentication required.'
-      });
-    }
-
-    req.firebaseUser = await auth.verifyIdToken(idToken, true);
-    return next();
-  } catch (error) {
-    console.warn('[AUTH] Firebase token rejected:', error?.code || error?.message);
-    return res.status(401).json({
-      ok: false,
-      message: 'Invalid or expired authentication token.'
-    });
-  }
-}
-
-async function requireAdminOrOwner(req, res, next) {
-  try {
-    if (!OWNER_UID) {
-      console.error('[AUTH] OWNER_UID is not configured. Admin access is disabled.');
-      return res.status(503).json({
-        ok: false,
-        message: 'Server owner security is not configured.'
-      });
-    }
-
-    const uid = String(req.firebaseUser?.uid || '');
-
-    if (!uid) {
-      return res.status(401).json({
-        ok: false,
-        message: 'Firebase authentication required.'
-      });
-    }
-
-    if (uid === OWNER_UID) {
-      req.authRole = 'owner';
-      return next();
-    }
-
-    const adminSnap = await db.collection('admins').doc(uid).get();
-    const adminData = adminSnap.exists ? (adminSnap.data() || {}) : {};
-
-    if (
-      !adminSnap.exists ||
-      adminData.active !== true ||
-      String(adminData.role || '').trim().toLowerCase() !== 'admin'
-    ) {
-      return res.status(403).json({
-        ok: false,
-        message: 'Active admin access required.'
-      });
-    }
-
-    req.authRole = 'admin';
-    return next();
-  } catch (error) {
-    console.error('[AUTH] Admin authorization error:', error);
-    return res.status(500).json({
-      ok: false,
-      message: 'Could not verify admin permissions.'
-    });
-  }
-}
-
-async function requireOwner(req, res, next) {
-  if (!OWNER_UID) {
-    console.error('[AUTH] OWNER_UID is not configured. Owner access is disabled.');
-    return res.status(503).json({
-      ok: false,
-      message: 'Server owner security is not configured.'
-    });
-  }
-
-  if (String(req.firebaseUser?.uid || '') !== OWNER_UID) {
-    return res.status(403).json({
-      ok: false,
-      message: 'Owner access only.'
-    });
-  }
-
-  req.authRole = 'owner';
-  return next();
-}
-
-// RESEND EMAIL API
-const resendApiKey = required('RESEND_API_KEY');
-const resendFrom = required('RESEND_FROM');
-
-// MEMORY STORES
-const otpStore = new Map();
-const requestRateStore = new Map();
-
-// RATE LIMIT
-function getClientIp(req) {
-  return String(req.ip || req.socket?.remoteAddress || 'unknown');
-}
-
-function checkRequestRate(req) {
-  const ip = getClientIp(req);
-  const current = now();
-
-  let record = requestRateStore.get(ip);
-
-  if (!record || current - record.startedAt >= REQUEST_WINDOW_MS) {
-    record = { startedAt: current, count: 0 };
-  }
-
-  record.count += 1;
-  requestRateStore.set(ip, record);
-
-  return record.count <= MAX_REQUESTS_PER_WINDOW;
-}
-
-// CLEANUP
 function cleanupExpired() {
-  const currentTime = now();
-
+  const t = now();
   for (const [email, record] of otpStore) {
-    const otpStillActive =
-      Number(record.otpExpiresAt || 0) > currentTime;
-
-    const resetStillActive =
-      Number(record.resetExpiresAt || 0) > currentTime;
-
-    if (!otpStillActive && !resetStillActive) {
+    if (record.otpExpiresAt <= t && (!record.resetExpiresAt || record.resetExpiresAt <= t)) {
       otpStore.delete(email);
-    }
-  }
-
-  for (const [ip, record] of requestRateStore) {
-    if (currentTime - record.startedAt >= REQUEST_WINDOW_MS) {
-      requestRateStore.delete(ip);
     }
   }
 }
 
 setInterval(cleanupExpired, 60_000).unref();
 
-// SEND OTP EMAIL THROUGH RESEND
 async function sendOtpEmail(email, otp) {
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      from: resendFrom,
-      to: [email],
-      subject: '2FC E-SPORTS — Password Reset OTP',
-
-      text:
-        `Your 2FC E-SPORTS password reset OTP is ${otp}.\n\n` +
-        `This OTP is valid for 5 minutes.\n` +
-        `After 5 wrong attempts, the OTP becomes invalid.\n\n` +
-        `If you did not request this password reset, you can ignore this email.`,
-
-      html: `
-        <div style="font-family:Arial,sans-serif;line-height:1.5;max-width:600px;margin:auto;padding:20px">
-          <h2>2FC E-SPORTS — Password Reset</h2>
-          <p>Your 6-digit password reset OTP is:</p>
-          <div style="font-size:32px;font-weight:800;letter-spacing:8px;margin:20px 0">${otp}</div>
-          <p>This OTP is valid for <b>5 minutes</b>.</p>
-          <p>After 5 wrong attempts, the current OTP becomes invalid.</p>
-          <p>If you did not request this password reset, you can safely ignore this email.</p>
-          <hr>
-          <p style="font-size:12px;color:#777">2FC E-SPORTS Security System</p>
-        </div>`
-    })
+  await transporter.sendMail({
+    from: `"2FC E-SPORTS" <${gmailUser}>`,
+    to: email,
+    subject: '2FC E-SPORTS — Password Reset OTP',
+    text:
+      `Your 2FC E-SPORTS password reset OTP is ${otp}.\n\n` +
+      `This OTP is valid for 60 seconds.\n` +
+      `After 5 wrong attempts, the OTP becomes invalid.\n\n` +
+      `If you did not request this, you can ignore this email.`,
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.5">
+        <h2>2FC E-SPORTS — Password Reset</h2>
+        <p>Your 6-digit OTP is:</p>
+        <div style="font-size:32px;font-weight:800;letter-spacing:8px">${otp}</div>
+        <p>This OTP is valid for <b>60 seconds</b>.</p>
+        <p>After 5 wrong attempts, the current OTP becomes invalid.</p>
+        <p>If you did not request a password reset, ignore this email.</p>
+      </div>
+    `
   });
-
-  const result = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    console.error('Resend API error:', response.status, result);
-    throw new Error(
-      result?.message ||
-      `Resend API request failed with status ${response.status}`
-    );
-  }
 }
 
-// HEALTH CHECK
 app.get('/health', (req, res) => {
-  res.json({
-    ok: true,
-    service: '2FC E-SPORTS OTP backend'
-  });
+  res.json({ ok: true, service: '2FC E-SPORTS OTP backend' });
 });
 
-// AUTHENTICATED SESSION CHECKS
-app.get(
-  '/api/admin/session',
-  authenticateFirebaseUser,
-  requireAdminOrOwner,
-  (req, res) => {
-    return res.json({
-      ok: true,
-      uid: req.firebaseUser.uid,
-      role: req.authRole
-    });
+// Action verification OTPs are stored in Firestore so they survive server restarts.
+async function requireGoogleIdentity(req, res) {
+  const header = String(req.headers.authorization || '');
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  if (!match) {
+    res.status(401).json({ ok: false, message: 'Please login again before verification.' });
+    return null;
   }
-);
-
-app.get(
-  '/api/owner/security-check',
-  authenticateFirebaseUser,
-  requireOwner,
-  (req, res) => {
-    return res.json({
-      ok: true,
-      owner: true,
-      uid: req.firebaseUser.uid
-    });
+  try {
+    const decoded = await auth.verifyIdToken(match[1]);
+    const email = normalizeEmail(decoded.email);
+    if (!decoded.email_verified || !validGmail(email)) {
+      res.status(403).json({ ok: false, message: 'A verified Gmail account is required.' });
+      return null;
+    }
+    const user = await auth.getUser(decoded.uid);
+    const googleProvider = (user.providerData || []).find(p => p.providerId === 'google.com' && normalizeEmail(p.email) === email);
+    if (!googleProvider) {
+      res.status(403).json({ ok: false, message: 'Verify this same Gmail with Google first.' });
+      return null;
+    }
+    return { uid: decoded.uid, email };
+  } catch {
+    res.status(401).json({ ok: false, message: 'Login session expired. Please login again.' });
+    return null;
   }
-);
-
-
-// PAYMENT / DEPOSIT API — all balance-changing deposit actions run on the server.
-function paymentAmount(value) {
-  const amount = Number(value);
-  if (!Number.isFinite(amount) || amount < 10 || amount > 500000) return null;
-  return Math.round(amount * 100) / 100;
 }
 
-async function getPaymentDollarRate() {
-  const snap = await db.collection('siteSettings').doc('withdrawalDollarRate').get();
-  const rate = snap.exists ? Number(snap.data()?.rate || 0) : 0;
-  return Number.isFinite(rate) && rate > 0 ? rate : 0;
+function validAction(value) {
+  return value === 'JOIN_MATCH' || value === 'WITHDRAW';
 }
 
-app.get('/api/payments/dollar-rate', authenticateFirebaseUser, async (req, res) => {
-  try {
-    const rate = await getPaymentDollarRate();
-    return res.json({ ok: true, rate });
-  } catch (error) {
-    console.error('[PAYMENT] Dollar rate read failed:', error);
-    return res.status(500).json({ ok: false, message: 'Could not load the current dollar rate.' });
-  }
-});
-
-app.post('/api/payments/deposits', authenticateFirebaseUser, async (req, res) => {
-  try {
-    const email = normalizeEmail(req.firebaseUser?.email);
-    if (!email || !email.includes('@')) return res.status(403).json({ ok: false, message: 'A valid signed-in account is required.' });
-    const amountBdt = paymentAmount(req.body?.amountBdt);
-    const method = String(req.body?.method || '').trim().toLowerCase();
-    const trxId = String(req.body?.trxId || '').trim();
-    const paymentNumber = String(req.body?.paymentNumber || '').trim().slice(0, 80);
-    if (amountBdt === null || !['bkash', 'nagad', 'rocket', 'binance'].includes(method) || trxId.length < 3 || trxId.length > 120) {
-      return res.status(400).json({ ok: false, message: 'Invalid deposit details.' });
-    }
-
-    const userRef = db.collection('users').doc(email);
-    const depositRef = db.collection('deposits').doc(hash(trxId.toLowerCase()));
-    const createdAt = new Date().toISOString();
-    const rate = method === 'binance' ? await getPaymentDollarRate() : 0;
-    if (method === 'binance' && !rate) return res.status(409).json({ ok: false, message: 'Admin has not set the USD to BDT rate yet.' });
-    const usdAmount = method === 'binance' ? Number((amountBdt / rate).toFixed(8)) : 0;
-    const orderBase = `2FC${String(new Date().getDate()).padStart(2, '0')}${String(new Date().getMonth() + 1).padStart(2, '0')}${new Date().getFullYear()}${String(amountBdt)}`;
-    const orderNumber = `${orderBase}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
-
-    let saved;
-    await db.runTransaction(async tx => {
-      const [userSnap, duplicateSnap, sameIdSnap] = await Promise.all([
-        tx.get(userRef),
-        tx.get(db.collection('deposits').where('trxId', '==', trxId).limit(1)),
-        tx.get(depositRef)
-      ]);
-      if (!userSnap.exists) throw new Error('User account পাওয়া যায়নি।');
-      if (!duplicateSnap.empty || sameIdSnap.exists) throw new Error('এই Transaction ID ইতিমধ্যে ব্যবহার করা হয়েছে।');
-      const user = userSnap.data() || {};
-      const oldTransactions = Array.isArray(user.transactions) ? user.transactions : [];
-      if (oldTransactions.some(item => String(item?.trxId || '').trim() === trxId)) throw new Error('এই Transaction ID ইতিমধ্যে ব্যবহার করা হয়েছে।');
-      const deposit = {
-        type: 'ADD_MONEY', userEmail: email, userUid: req.firebaseUser.uid,
-        userName: user.name || email, supportPin: user.supportPin || '',
-        amount: amountBdt, amountBdt, usdAmount,
-        dollarRateAtRequest: method === 'binance' ? rate : null,
-        currency: method === 'binance' ? 'USD' : 'BDT', method, trxId,
-        paymentNumber, status: 'PENDING', date: createdAt, createdAt, orderNumber
-      };
-      const history = {
-        date: createdAt, createdAt, orderNumber, trxId, amount: amountBdt,
-        amountBdt, usdAmount, status: 'PENDING', method
-      };
-      tx.create(depositRef, deposit);
-      tx.update(userRef, { transactions: [history, ...oldTransactions.filter(x => String(x?.trxId || '').trim() !== trxId)] });
-      saved = { id: depositRef.id, orderNumber, amountBdt, usdAmount, dollarRateAtRequest: method === 'binance' ? rate : null };
-    });
-    return res.status(201).json({ ok: true, message: 'Deposit request submitted.', deposit: saved });
-  } catch (error) {
-    const message = error?.message || 'Could not submit deposit request.';
-    const status = /already used|already/i.test(message) ? 409 : /User account/i.test(message) ? 404 : 400;
-    return res.status(status).json({ ok: false, message });
-  }
-});
-
-app.post('/api/admin/deposits/:depositId/approve', authenticateFirebaseUser, requireAdminOrOwner, async (req, res) => {
-  try {
-    const depositRef = db.collection('deposits').doc(String(req.params.depositId || ''));
-    const reason = String(req.body?.reason || '').trim().slice(0, 500);
-    let creditedAmountBdt = 0;
-    await db.runTransaction(async tx => {
-      const depositSnap = await tx.get(depositRef);
-      if (!depositSnap.exists) throw new Error('Deposit not found.');
-      const deposit = depositSnap.data() || {};
-      if (String(deposit.status || '').toUpperCase() !== 'PENDING') throw new Error('This deposit is already processed.');
-      const email = normalizeEmail(deposit.userEmail);
-      if (!email) throw new Error('Deposit user is invalid.');
-      const userRef = db.collection('users').doc(email);
-      const userSnap = await tx.get(userRef);
-      if (!userSnap.exists) throw new Error('User not found.');
-      const amount = paymentAmount(deposit.amountBdt ?? deposit.amount);
-      if (amount === null) throw new Error('Deposit BDT amount is invalid.');
-      const user = userSnap.data() || {};
-      const transactions = Array.isArray(user.transactions) ? user.transactions : [];
-      const trx = String(deposit.trxId || '').trim();
-      const nextTransactions = transactions.map(item => String(item?.trxId || '').trim() === trx ? { ...item, status: 'COMPLETED' } : item);
-      tx.update(userRef, { balance: Number(user.balance || 0) + amount, transactions: nextTransactions });
-      tx.update(depositRef, { status: 'APPROVED', approvedAt: new Date().toISOString(), approvedByUid: req.firebaseUser.uid, creditedAmountBdt: amount, ...(reason ? { approvalReason: reason } : {}) });
-      creditedAmountBdt = amount;
-    });
-    return res.json({ ok: true, creditedAmountBdt });
-  } catch (error) {
-    const message = error?.message || 'Unable to approve deposit.';
-    return res.status(/not found/i.test(message) ? 404 : 409).json({ ok: false, message });
-  }
-});
-
-app.post('/api/admin/deposits/:depositId/reject', authenticateFirebaseUser, requireAdminOrOwner, async (req, res) => {
-  try {
-    const depositRef = db.collection('deposits').doc(String(req.params.depositId || ''));
-    const reason = String(req.body?.reason || '').trim().slice(0, 500);
-    await db.runTransaction(async tx => {
-      const depositSnap = await tx.get(depositRef);
-      if (!depositSnap.exists) throw new Error('Deposit not found.');
-      const deposit = depositSnap.data() || {};
-      if (String(deposit.status || '').toUpperCase() !== 'PENDING') throw new Error('This deposit is already processed.');
-      const email = normalizeEmail(deposit.userEmail);
-      const userRef = db.collection('users').doc(email);
-      const userSnap = await tx.get(userRef);
-      const trx = String(deposit.trxId || '').trim();
-      if (userSnap.exists) {
-        const user = userSnap.data() || {};
-        const transactions = Array.isArray(user.transactions) ? user.transactions : [];
-        tx.update(userRef, { transactions: transactions.map(item => String(item?.trxId || '').trim() === trx ? { ...item, status: 'REJECTED' } : item) });
-      }
-      tx.update(depositRef, { status: 'REJECTED', rejectedAt: new Date().toISOString(), rejectedByUid: req.firebaseUser.uid, ...(reason ? { rejectionReason: reason } : {}) });
-    });
-    return res.json({ ok: true });
-  } catch (error) {
-    const message = error?.message || 'Unable to reject deposit.';
-    return res.status(/not found/i.test(message) ? 404 : 409).json({ ok: false, message });
-  }
-});
-
-app.post('/api/admin/payments/dollar-rate', authenticateFirebaseUser, requireAdminOrOwner, async (req, res) => {
-  try {
-    const rate = Number(req.body?.rate);
-    if (!Number.isFinite(rate) || rate <= 0 || rate > 1000000) return res.status(400).json({ ok: false, message: 'Enter a valid dollar rate.' });
-    await db.collection('siteSettings').doc('withdrawalDollarRate').set({ rate, usdToBdt: rate, baseCurrency: 'USD', targetCurrency: 'BDT', updatedAt: new Date().toISOString(), updatedByUid: req.firebaseUser.uid }, { merge: true });
-    return res.json({ ok: true, rate });
-  } catch (error) {
-    console.error('[PAYMENT] Dollar rate save failed:', error);
-    return res.status(500).json({ ok: false, message: 'Could not save the dollar rate.' });
-  }
-});
-
-// FIREBASE CLOUD MESSAGING PUSH SENDER
-app.post('/api/push/send', authenticateFirebaseUser, requireAdminOrOwner, async (req, res) => {
-
-  console.log('[PUSH] Request received:', {
-    time: new Date().toISOString(),
-    recipientCount: Array.isArray(req.body?.recipients)
-      ? req.body.recipients.length
-      : 0,
-    hasTitle: !!req.body?.title,
-    hasMessage: !!req.body?.message,
-    hasSupportPin: !!(
-      req.body?.supportPin ||
-      req.body?.supportPins
-    )
+async function sendActionOtpEmail(email, otp, action) {
+  const actionName = action === 'JOIN_MATCH' ? 'Join Match' : 'Withdraw';
+  await transporter.sendMail({
+    from: `"2FC E-SPORTS" <${gmailUser}>`,
+    to: email,
+    subject: `2FC E-SPORTS — ${actionName} Verification OTP`,
+    text: `Your ${actionName} verification OTP is ${otp}.\n\nThis OTP is valid for 60 seconds and can be used only once. After 5 wrong attempts, it becomes invalid.`,
+    html: `<div style="font-family:Arial,sans-serif;line-height:1.5"><h2>2FC E-SPORTS — ${actionName} Verification</h2><p>Your 6-digit OTP is:</p><div style="font-size:32px;font-weight:800;letter-spacing:8px">${otp}</div><p>This OTP is valid for <b>60 seconds</b>.</p><p>After 5 wrong attempts, the OTP becomes invalid.</p></div>`
   });
+}
 
+app.post('/api/action-otp/request', async (req, res) => {
   try {
-    console.log('[PUSH] Authorized sender:', req.firebaseUser.uid, req.authRole);
+    const identity = await requireGoogleIdentity(req, res);
+    if (!identity) return;
 
-    const title = String(req.body?.title || '')
-      .trim()
-      .slice(0, 100);
-
-    const messageBody = String(req.body?.message || '')
-      .trim()
-      .slice(0, 1500);
-
-    const recipients = Array.isArray(req.body?.recipients)
-      ? req.body.recipients
-      : [];
-
-    const supportPins = parseSupportPins(
-      req.body?.supportPin ?? req.body?.supportPins
-    );
-
-    const targetUrl = String(req.body?.targetUrl || '').trim();
-
-    if (
-      !title ||
-      !messageBody ||
-      !recipients.length ||
-      recipients.length > 500 ||
-      supportPins.length > 100 ||
-      !validHttpUrl(targetUrl)
-    ) {
-      console.warn('[PUSH] Rejected: invalid notification details.');
-
-      return res.status(400).json({
-        ok: false,
-        message: 'Invalid push notification details.'
-      });
+    const action = String(req.body?.action || '');
+    if (!validAction(action)) {
+      return res.status(400).json({ ok: false, message: 'Invalid verification action.' });
     }
 
-    const recipientMap = new Map();
+    const ref = db.collection('actionVerificationOtps').doc(`${identity.uid}_${action}`);
+    const oldSnap = await ref.get();
+    const old = oldSnap.exists ? oldSnap.data() : {};
 
-    for (const item of recipients) {
-      const email = normalizeEmail(item?.email);
-      const notificationId = String(item?.notificationId || '').trim();
-
-      if (email && notificationId) {
-        recipientMap.set(email, notificationId);
-      }
+    if (old.lastSentAt && now() - Number(old.lastSentAt) < RESEND_COOLDOWN_MS) {
+      const wait = Math.ceil((RESEND_COOLDOWN_MS - (now() - Number(old.lastSentAt))) / 1000);
+      return res.status(429).json({ ok: false, message: `Please wait ${wait} seconds before requesting another OTP.` });
     }
 
-    if (!recipientMap.size) {
-      console.warn('[PUSH] Rejected: no valid recipient records.');
+    const otp = randomOtp();
+    await sendActionOtpEmail(identity.email, otp, action);
 
-      return res.status(400).json({
-        ok: false,
-        message: 'No valid notification recipients were supplied.'
-      });
-    }
-
-    const recipientRows = [...recipientMap.entries()];
-
-    const userSnaps = await Promise.all(
-      recipientRows.map(([email]) =>
-        db.collection('users').doc(email).get()
-      )
-    );
-
-    const selectedUsers = [];
-
-    for (let i = 0; i < recipientRows.length; i += 1) {
-      const [email, notificationId] = recipientRows[i];
-      const userSnap = userSnaps[i];
-
-      if (!userSnap.exists) continue;
-
-      if (supportPins.length) {
-        const userData = userSnap.data() || {};
-
-        const userPins = [
-          userData.supportPin,
-          userData.immutableSupportPin
-        ]
-          .map(value => String(value || '').trim())
-          .filter(Boolean);
-
-        if (!userPins.some(pin => supportPins.includes(pin))) {
-          continue;
-        }
-      }
-
-      selectedUsers.push({
-        email,
-        notificationId,
-        userSnap
-      });
-    }
-
-    console.log('[PUSH] Recipient selection:', {
-      requested: recipientRows.length,
-      selected: selectedUsers.length,
-      supportPinFilter: supportPins.length > 0
+    await ref.set({
+      uid: identity.uid,
+      email: identity.email,
+      action,
+      otpHash: hash(otp),
+      otpExpiresAt: now() + OTP_TTL_MS,
+      lastSentAt: now(),
+      attempts: 0
     });
 
-    if (!selectedUsers.length) {
-      console.warn('[PUSH] No matching registered recipients.');
-
-      return res.status(404).json({
-        ok: false,
-        message: supportPins.length
-          ? 'No recipients matched the supplied Support PIN(s).'
-          : 'No registered recipient accounts were found.'
-      });
-    }
-
-    const messages = [];
-    const tokenRefs = [];
-
-    let invalidNotificationRecords = 0;
-
-    for (const row of selectedUsers) {
-      const notificationSnap = await db
-        .collection('userNotifications')
-        .doc(row.notificationId)
-        .get();
-
-      if (!notificationSnap.exists) {
-        invalidNotificationRecords += 1;
-        continue;
-      }
-
-      const notificationData = notificationSnap.data() || {};
-
-      if (
-        normalizeEmail(notificationData.recipientEmail) !== row.email
-      ) {
-        invalidNotificationRecords += 1;
-        continue;
-      }
-
-      const userData = row.userSnap.data() || {};
-
-      if (supportPins.length) {
-        const savedPin = String(
-          notificationData.recipientSupportPin || ''
-        ).trim();
-
-        const actualPins = [
-          userData.supportPin,
-          userData.immutableSupportPin
-        ]
-          .map(value => String(value || '').trim())
-          .filter(Boolean);
-
-        if (savedPin && !actualPins.includes(savedPin)) {
-          invalidNotificationRecords += 1;
-          continue;
-        }
-      }
-
-      const token = String(userData.fcmToken || '').trim();
-
-      if (!token) continue;
-
-      const fallbackUrl =
-        '/?notificationId=' +
-        encodeURIComponent(row.notificationId);
-
-      messages.push({
-        token,
-
-        data: {
-          title,
-          body: messageBody,
-          url: targetUrl || fallbackUrl,
-          targetUrl: targetUrl || '',
-          notificationId: row.notificationId,
-          notificationType: '2fc-user-notification'
-        },
-
-        webpush: {
-          headers: {
-            TTL: '86400',
-            Urgency: 'high'
-          }
-        }
-      });
-
-      tokenRefs.push(row.userSnap.ref);
-    }
-
-    console.log('[PUSH] Prepared messages:', {
-      selectedUsers: selectedUsers.length,
-      messagesWithFcmToken: messages.length,
-      invalidNotificationRecords
-    });
-
-    if (!messages.length) {
-      console.warn('[PUSH] No FCM tokens available for selected users.');
-
-      return res.json({
-        ok: true,
-        sent: 0,
-        failed: 0,
-        noDevice: selectedUsers.length,
-        invalidRecords: invalidNotificationRecords,
-        message: 'No enabled devices found for the selected users.'
-      });
-    }
-
-    const results = await Promise.allSettled(
-      messages.map(item => admin.messaging().send(item))
-    );
-
-    console.log('[PUSH] Firebase send results:', {
-      total: results.length,
-      success: results.filter(
-        result => result.status === 'fulfilled'
-      ).length,
-      failed: results.filter(
-        result => result.status === 'rejected'
-      ).length
-    });
-
-    const invalidCodes = new Set([
-      'messaging/registration-token-not-registered',
-      'messaging/invalid-registration-token'
-    ]);
-
-    const cleanup = [];
-
-    let sent = 0;
-    let failed = 0;
-
-    results.forEach((result, index) => {
-      if (result.status === 'fulfilled') {
-        sent += 1;
-
-        console.log('[PUSH] FCM accepted message:', {
-          index,
-          messageId: result.value
-        });
-
-      } else {
-        failed += 1;
-
-        console.error('[PUSH] FCM individual send error:', {
-          index,
-          code: result.reason?.code,
-          message: result.reason?.message
-        });
-
-        if (invalidCodes.has(result.reason?.code)) {
-          cleanup.push(
-            tokenRefs[index].update({
-              fcmToken: admin.firestore.FieldValue.delete(),
-              fcmTokenUpdatedAt: admin.firestore.FieldValue.delete()
-            })
-          );
-        }
-      }
-    });
-
-    if (cleanup.length) {
-      await Promise.allSettled(cleanup);
-      console.log('[PUSH] Invalid FCM tokens cleaned:', cleanup.length);
-    }
-
-    console.log('[PUSH] Final summary:', {
-      sent,
-      failed,
-      noDevice: selectedUsers.length - messages.length,
-      invalidRecords: invalidNotificationRecords
-    });
-
-    return res.json({
-      ok: true,
-      sent,
-      failed,
-      noDevice: selectedUsers.length - messages.length,
-      invalidRecords: invalidNotificationRecords
-    });
-
+    return res.json({ ok: true, message: 'Verification OTP sent to your registered Gmail.' });
   } catch (error) {
-    console.error('[PUSH] FCM push send error:', {
-      code: error?.code,
-      message: error?.message,
-      stack: error?.stack
-    });
-
-    const status = String(error?.code || '').startsWith('auth/')
-      ? 401
-      : 500;
-
-    return res.status(status).json({
-      ok: false,
-      message: 'Could not send push notifications.'
-    });
+    console.error('Action OTP request error:', error);
+    return res.status(500).json({ ok: false, message: 'Unable to send verification OTP right now.' });
   }
 });
 
-// REQUEST OTP
+app.post('/api/action-otp/verify', async (req, res) => {
+  try {
+    const identity = await requireGoogleIdentity(req, res);
+    if (!identity) return;
+
+    const action = String(req.body?.action || '');
+    const otp = String(req.body?.otp || '').trim();
+
+    if (!validAction(action) || !/^\d{6}$/.test(otp)) {
+      return res.status(400).json({ ok: false, message: 'Enter the 6-digit OTP.' });
+    }
+
+    const ref = db.collection('actionVerificationOtps').doc(`${identity.uid}_${action}`);
+
+    const result = await db.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+
+      if (!snap.exists) {
+        return { status: 400, message: 'OTP expired. Please request a new OTP.' };
+      }
+
+      const record = snap.data() || {};
+
+      if (record.uid !== identity.uid || record.email !== identity.email || record.action !== action) {
+        return { status: 403, message: 'Verification session does not match this account.' };
+      }
+
+      if (Number(record.otpExpiresAt) <= now()) {
+        tx.delete(ref);
+        return { status: 400, message: 'OTP expired. Please request a new OTP.' };
+      }
+
+      if (Number(record.attempts || 0) >= MAX_OTP_ATTEMPTS) {
+        tx.delete(ref);
+        return { status: 429, message: 'Too many wrong attempts. Please request a new OTP.' };
+      }
+
+      if (hash(otp) !== record.otpHash) {
+        const attempts = Number(record.attempts || 0) + 1;
+
+        if (attempts >= MAX_OTP_ATTEMPTS) {
+          tx.delete(ref);
+          return { status: 429, message: 'Too many wrong attempts. Please request a new OTP.' };
+        }
+
+        tx.update(ref, { attempts });
+        return { status: 400, message: `Wrong OTP. ${MAX_OTP_ATTEMPTS - attempts} attempts remaining.` };
+      }
+
+      tx.update(ref, {
+        otpHash: null,
+        otpExpiresAt: 0,
+        attempts: 0,
+        verifiedAt: now()
+      });
+
+      return { status: 200 };
+    });
+
+    if (result.status !== 200) {
+      return res.status(result.status).json({ ok: false, message: result.message });
+    }
+
+    return res.json({ ok: true, message: 'Gmail OTP verified successfully.' });
+  } catch (error) {
+    console.error('Action OTP verify error:', error);
+    return res.status(500).json({ ok: false, message: 'Unable to verify OTP right now.' });
+  }
+});
+
 app.post('/api/password-otp/request', async (req, res) => {
   try {
-    if (!checkRequestRate(req)) {
-      return res.status(429).json({
-        ok: false,
-        message: 'Too many requests. Please try again later.'
-      });
-    }
-
     const email = normalizeEmail(req.body?.email);
 
     if (!validGmail(email)) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Enter a valid registered Gmail.'
-      });
+      return res.status(400).json({ ok: false, message: 'Enter a valid registered Gmail.' });
     }
 
     const existing = otpStore.get(email);
 
-    if (
-      existing?.lastSentAt &&
-      now() - existing.lastSentAt < RESEND_COOLDOWN_MS
-    ) {
-      const wait = Math.ceil(
-        (RESEND_COOLDOWN_MS - (now() - existing.lastSentAt)) / 1000
-      );
-
+    if (existing && existing.lastSentAt && now() - existing.lastSentAt < RESEND_COOLDOWN_MS) {
+      const wait = Math.ceil((RESEND_COOLDOWN_MS - (now() - existing.lastSentAt)) / 1000);
       return res.status(429).json({
         ok: false,
         message: `Please wait ${wait} seconds before requesting another OTP.`
       });
     }
 
+    // Verify that the account exists in Firebase Authentication.
+    // Do not return the raw Firebase error to the client.
     try {
       await auth.getUserByEmail(email);
-
-    } catch (error) {
-      if (error?.code !== 'auth/user-not-found') throw error;
-
-      const legacyUser = await db
-        .collection('users')
-        .doc(email)
-        .get();
-
-      if (!legacyUser.exists) {
-        return res.status(404).json({
-          ok: false,
-          message: 'No registered 2FC account was found for this Gmail.'
-        });
-      }
+    } catch {
+      return res.status(404).json({
+        ok: false,
+        message: 'No registered 2FC account was found for this Gmail.'
+      });
     }
 
     const otp = randomOtp();
@@ -886,71 +329,43 @@ app.post('/api/password-otp/request', async (req, res) => {
       resetExpiresAt: 0
     });
 
-    return res.json({
-      ok: true,
-      message: 'OTP sent to your registered Gmail.'
-    });
-
+    return res.json({ ok: true, message: 'OTP sent to your registered Gmail.' });
   } catch (error) {
     console.error('OTP request error:', error);
-
-    return res.status(500).json({
-      ok: false,
-      message: 'Unable to send OTP right now.'
-    });
+    return res.status(500).json({ ok: false, message: 'Unable to send OTP right now.' });
   }
 });
 
-// VERIFY OTP
 app.post('/api/password-otp/verify', async (req, res) => {
   try {
-    if (!checkRequestRate(req)) {
-      return res.status(429).json({
-        ok: false,
-        message: 'Too many requests. Please try again later.'
-      });
-    }
-
     const email = normalizeEmail(req.body?.email);
     const otp = String(req.body?.otp || '').trim();
 
     if (!validGmail(email) || !/^\d{6}$/.test(otp)) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Enter the 6-digit OTP.'
-      });
+      return res.status(400).json({ ok: false, message: 'Enter the 6-digit OTP.' });
     }
 
     const record = otpStore.get(email);
 
-    if (
-      !record ||
-      !record.otpExpiresAt ||
-      record.otpExpiresAt <= now()
-    ) {
-      otpStore.delete(email);
+    if (!record) {
+      return res.status(400).json({ ok: false, message: 'OTP expired. Please request a new OTP.' });
+    }
 
-      return res.status(400).json({
-        ok: false,
-        message: 'OTP expired. Please request a new OTP.'
-      });
+    if (record.otpExpiresAt <= now()) {
+      otpStore.delete(email);
+      return res.status(400).json({ ok: false, message: 'OTP expired. Please request a new OTP.' });
     }
 
     if (record.attempts >= MAX_OTP_ATTEMPTS) {
       otpStore.delete(email);
-
-      return res.status(429).json({
-        ok: false,
-        message: 'Too many wrong attempts. Please request a new OTP.'
-      });
+      return res.status(429).json({ ok: false, message: 'Too many wrong attempts. Please request a new OTP.' });
     }
 
-    if (!safeEqual(hash(otp), record.otpHash)) {
+    if (hash(otp) !== record.otpHash) {
       record.attempts += 1;
 
       if (record.attempts >= MAX_OTP_ATTEMPTS) {
         otpStore.delete(email);
-
         return res.status(429).json({
           ok: false,
           message: 'Too many wrong attempts. Please request a new OTP.'
@@ -963,8 +378,8 @@ app.post('/api/password-otp/verify', async (req, res) => {
       });
     }
 
+    // OTP becomes single-use after successful verification.
     const resetToken = randomToken();
-
     record.otpHash = null;
     record.otpExpiresAt = 0;
     record.attempts = 0;
@@ -975,51 +390,29 @@ app.post('/api/password-otp/verify', async (req, res) => {
       ok: true,
       resetToken
     });
-
   } catch (error) {
     console.error('OTP verify error:', error);
-
-    return res.status(500).json({
-      ok: false,
-      message: 'Unable to verify OTP right now.'
-    });
+    return res.status(500).json({ ok: false, message: 'Unable to verify OTP right now.' });
   }
 });
 
-// RESET PASSWORD
 app.post('/api/password-otp/reset', async (req, res) => {
   try {
-    if (!checkRequestRate(req)) {
-      return res.status(429).json({
-        ok: false,
-        message: 'Too many requests. Please try again later.'
-      });
-    }
-
     const email = normalizeEmail(req.body?.email);
     const resetToken = String(req.body?.resetToken || '');
     const newPassword = String(req.body?.newPassword || '');
     const confirmPassword = String(req.body?.confirmPassword || '');
 
     if (!validGmail(email) || !resetToken) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Invalid reset session.'
-      });
+      return res.status(400).json({ ok: false, message: 'Invalid reset session.' });
     }
 
     if (newPassword.length < 6) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Password must be at least 6 characters.'
-      });
+      return res.status(400).json({ ok: false, message: 'Password must be at least 6 characters.' });
     }
 
     if (newPassword !== confirmPassword) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Passwords do not match.'
-      });
+      return res.status(400).json({ ok: false, message: 'Passwords do not match.' });
     }
 
     const record = otpStore.get(email);
@@ -1028,55 +421,16 @@ app.post('/api/password-otp/reset', async (req, res) => {
       !record ||
       !record.resetTokenHash ||
       record.resetExpiresAt <= now() ||
-      !safeEqual(hash(resetToken), record.resetTokenHash)
+      hash(resetToken) !== record.resetTokenHash
     ) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Reset session expired. Please start again.'
-      });
+      return res.status(400).json({ ok: false, message: 'Reset session expired. Please start again.' });
     }
 
-    let user;
+    const user = await auth.getUserByEmail(email);
 
-    try {
-      user = await auth.getUserByEmail(email);
+    await auth.updateUser(user.uid, { password: newPassword });
 
-      await auth.updateUser(user.uid, {
-        password: newPassword
-      });
-
-    } catch (error) {
-      if (error?.code !== 'auth/user-not-found') throw error;
-
-      const legacyUser = await db
-        .collection('users')
-        .doc(email)
-        .get();
-
-      if (!legacyUser.exists) {
-        return res.status(404).json({
-          ok: false,
-          message: 'No registered 2FC account was found for this Gmail.'
-        });
-      }
-
-      user = await auth.createUser({
-        email,
-        password: newPassword
-      });
-    }
-
-    const userProfileRef = db.collection('users').doc(email);
-    const userProfile = await userProfileRef.get();
-
-    if (userProfile.exists) {
-      await userProfileRef.update({
-        password: admin.firestore.FieldValue.delete(),
-        authUid: user.uid,
-        passwordUpdatedAt: admin.firestore.FieldValue.serverTimestamp()
-      });
-    }
-
+    // Metadata only: never store the password or reset token.
     await db.collection('passwordChangeEvents').add({
       uid: user.uid,
       email,
@@ -1084,34 +438,24 @@ app.post('/api/password-otp/reset', async (req, res) => {
       method: '6-digit-email-otp'
     });
 
+    // One-time reset session.
     otpStore.delete(email);
 
     return res.json({
       ok: true,
       message: 'Password changed successfully. You can now login.'
     });
-
   } catch (error) {
     console.error('Password reset error:', error);
-
-    return res.status(500).json({
-      ok: false,
-      message: 'Unable to change password right now.'
-    });
+    return res.status(500).json({ ok: false, message: 'Unable to change password right now.' });
   }
 });
 
-// ERROR HANDLER
 app.use((err, req, res, next) => {
   console.error('Unhandled server error:', err);
-
-  res.status(500).json({
-    ok: false,
-    message: 'Internal server error.'
-  });
+  res.status(500).json({ ok: false, message: 'Internal server error.' });
 });
 
-// START SERVER
 app.listen(PORT, () => {
   console.log(`2FC E-SPORTS OTP backend running on port ${PORT}`);
 });
