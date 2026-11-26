@@ -188,12 +188,105 @@ async function getAccountContext(uid, authUser) {
   return { profileRef: profileSnap.ref, data, currentEmail };
 }
 
+// ==========================================
+// ADMIN SESSION VERIFICATION
+// ==========================================
+
+const ADMIN_OWNER_UID = process.env.ADMIN_OWNER_UID || 'CyALtzAjM6O4DMn98lOXvX3alQs1';
+
+app.get('/api/admin/session', async (req, res) => {
+  try {
+    const header = String(req.headers.authorization || '');
+    const match = header.match(/^Bearer\s+(.+)$/i);
+
+    if (!match) {
+      return res.status(401).json({
+        ok: false,
+        message: 'Please login again before verification.'
+      });
+    }
+
+    let decoded;
+
+    try {
+      decoded = await auth.verifyIdToken(match[1], true);
+    } catch {
+      return res.status(401).json({
+        ok: false,
+        message: 'Login session expired. Please login again.'
+      });
+    }
+
+    const user = await auth.getUser(decoded.uid);
+
+    if (decoded.uid === ADMIN_OWNER_UID) {
+      return res.json({
+        ok: true,
+        uid: decoded.uid,
+        role: 'owner'
+      });
+    }
+
+    if (!user.email || !user.emailVerified) {
+      return res.status(403).json({
+        ok: false,
+        message: 'Please verify your Gmail before using Admin access.'
+      });
+    }
+
+    const adminSnap = await db.collection('admins').doc(decoded.uid).get();
+
+    if (!adminSnap.exists) {
+      return res.status(403).json({
+        ok: false,
+        message: 'Admin access has not been approved.'
+      });
+    }
+
+    const adminData = adminSnap.data() || {};
+
+    if (
+      adminData.role !== 'admin' ||
+      adminData.active !== true ||
+      adminData.status !== 'approved'
+    ) {
+      return res.status(403).json({
+        ok: false,
+        message: 'Admin access নেই অথবা account inactive.'
+      });
+    }
+
+    return res.json({
+      ok: true,
+      uid: decoded.uid,
+      role: 'admin'
+    });
+
+  } catch (error) {
+    console.error('Admin session verification error:', error);
+
+    return res.status(500).json({
+      ok: false,
+      message: 'Unable to verify Admin permission right now.'
+    });
+  }
+});
+
+// ==========================================
+// HEALTH CHECK
+// ==========================================
+
 app.get('/health', (req, res) => {
   res.json({ ok: true, service: '2FC E-SPORTS OTP backend' });
 });
 
+// ==========================================
+// ACCOUNT EMAIL / PHONE OTP
+// ==========================================
+
 // Account changes: OTP is sent to the CURRENT Firebase Auth Gmail.
 // When an email change succeeds, the new Gmail becomes the only active OTP destination.
+
 app.post('/api/account-otp/request', async (req, res) => {
   try {
     const identity = await readBearerIdentity(req, res);
@@ -261,6 +354,7 @@ app.post('/api/account-otp/request', async (req, res) => {
 
     const otp = randomOtp();
     await sendAccountOtpEmail(ctx.currentEmail, otp, purpose);
+
     await ref.set({
       uid: identity.uid,
       profilePath: ctx.profileRef.path,
@@ -277,9 +371,13 @@ app.post('/api/account-otp/request', async (req, res) => {
       ok: true,
       message: `OTP sent to your current registered Gmail: ${ctx.currentEmail}.`
     });
+
   } catch (error) {
     console.error('Account OTP request error:', error);
-    return res.status(500).json({ ok: false, message: error.message || 'Unable to send OTP right now.' });
+    return res.status(500).json({
+      ok: false,
+      message: error.message || 'Unable to send OTP right now.'
+    });
   }
 });
 
@@ -373,7 +471,6 @@ app.post('/api/account-otp/verify', async (req, res) => {
       previousEmail = ctx.currentEmail;
       identityUid = identity.uid;
 
-      // Update Firebase Authentication first so the new Gmail + existing password can log in.
       await auth.updateUser(identity.uid, { email: target, emailVerified: false });
       authEmailChanged = true;
 
@@ -460,7 +557,11 @@ app.post('/api/account-otp/verify', async (req, res) => {
       });
     });
 
-    return res.json({ ok: true, message: 'Phone number connected after OTP verification to your current Gmail.' });
+    return res.json({
+      ok: true,
+      message: 'Phone number connected after OTP verification to your current Gmail.'
+    });
+
   } catch (error) {
     if (authEmailChanged && previousEmail && identityUid) {
       try {
@@ -471,11 +572,17 @@ app.post('/api/account-otp/verify', async (req, res) => {
     }
 
     console.error('Account OTP verify error:', error);
-    return res.status(500).json({ ok: false, message: 'Unable to verify and save this change right now.' });
+    return res.status(500).json({
+      ok: false,
+      message: 'Unable to verify and save this change right now.'
+    });
   }
 });
 
-// Join Match / Withdraw verification OTPs retained from the existing backend.
+// ==========================================
+// JOIN MATCH / WITHDRAW OTP
+// ==========================================
+
 async function requireGoogleIdentity(req, res) {
   const identity = await readBearerIdentity(req, res);
   if (!identity) return null;
@@ -523,6 +630,7 @@ app.post('/api/action-otp/request', async (req, res) => {
 
     const otp = randomOtp();
     await sendActionOtpEmail(identity.email, otp, action);
+
     await ref.set({
       uid: identity.uid,
       email: identity.email,
@@ -533,10 +641,17 @@ app.post('/api/action-otp/request', async (req, res) => {
       attempts: 0
     });
 
-    return res.json({ ok: true, message: 'Verification OTP sent to your registered Gmail.' });
+    return res.json({
+      ok: true,
+      message: 'Verification OTP sent to your registered Gmail.'
+    });
+
   } catch (error) {
     console.error('Action OTP request error:', error);
-    return res.status(500).json({ ok: false, message: 'Unable to send verification OTP right now.' });
+    return res.status(500).json({
+      ok: false,
+      message: 'Unable to send verification OTP right now.'
+    });
   }
 });
 
@@ -597,15 +712,24 @@ app.post('/api/action-otp/verify', async (req, res) => {
       return res.status(result.status).json({ ok: false, message: result.message });
     }
 
-    return res.json({ ok: true, message: 'Gmail OTP verified successfully.' });
+    return res.json({
+      ok: true,
+      message: 'Gmail OTP verified successfully.'
+    });
+
   } catch (error) {
     console.error('Action OTP verify error:', error);
-    return res.status(500).json({ ok: false, message: 'Unable to verify OTP right now.' });
+    return res.status(500).json({
+      ok: false,
+      message: 'Unable to verify OTP right now.'
+    });
   }
 });
 
-// Password-reset OTPs are stored in Firestore so Render restarts / multiple instances
-// do not lose codes between request, verify, and reset. Store only hashes, never OTPs.
+// ==========================================
+// PASSWORD RESET OTP
+// ==========================================
+
 function passwordResetRef(email) {
   return db.collection('passwordResetOtps').doc(hash(normalizeEmail(email)));
 }
@@ -624,7 +748,10 @@ app.post('/api/password-otp/request', async (req, res) => {
       user = await auth.getUserByEmail(email);
     } catch (error) {
       if (error.code === 'auth/user-not-found') {
-        return res.status(404).json({ ok: false, message: 'No registered 2FC account was found for this Gmail.' });
+        return res.status(404).json({
+          ok: false,
+          message: 'No registered 2FC account was found for this Gmail.'
+        });
       }
       throw error;
     }
@@ -639,6 +766,7 @@ app.post('/api/password-otp/request', async (req, res) => {
     }
 
     const otp = randomOtp();
+
     const record = {
       uid: user.uid,
       email,
@@ -658,16 +786,24 @@ app.post('/api/password-otp/request', async (req, res) => {
     } catch (mailError) {
       await ref.delete().catch(() => {});
       console.error('Password OTP email delivery error:', mailError);
+
       return res.status(502).json({
         ok: false,
         message: 'OTP email could not be sent. Check the mail server configuration and try again.'
       });
     }
 
-    return res.json({ ok: true, message: 'OTP sent to your registered Gmail.' });
+    return res.json({
+      ok: true,
+      message: 'OTP sent to your registered Gmail.'
+    });
+
   } catch (error) {
     console.error('OTP request error:', error);
-    return res.status(500).json({ ok: false, message: 'Unable to send OTP right now.' });
+    return res.status(500).json({
+      ok: false,
+      message: 'Unable to send OTP right now.'
+    });
   }
 });
 
@@ -730,9 +866,13 @@ app.post('/api/password-otp/verify', async (req, res) => {
     }
 
     return res.json({ ok: true, resetToken });
+
   } catch (error) {
     console.error('OTP verify error:', error);
-    return res.status(500).json({ ok: false, message: 'Unable to verify OTP right now.' });
+    return res.status(500).json({
+      ok: false,
+      message: 'Unable to verify OTP right now.'
+    });
   }
 });
 
@@ -759,8 +899,15 @@ app.post('/api/password-otp/reset', async (req, res) => {
     const snap = await ref.get();
     const record = snap.exists ? snap.data() : null;
 
-    if (!record?.resetTokenHash || Number(record.resetExpiresAt || 0) <= now() || hash(resetToken) !== record.resetTokenHash) {
-      return res.status(400).json({ ok: false, message: 'Reset session expired. Please start again.' });
+    if (
+      !record?.resetTokenHash ||
+      Number(record.resetExpiresAt || 0) <= now() ||
+      hash(resetToken) !== record.resetTokenHash
+    ) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Reset session expired. Please start again.'
+      });
     }
 
     const user = await auth.getUserByEmail(email);
@@ -774,16 +921,31 @@ app.post('/api/password-otp/reset', async (req, res) => {
     });
 
     await ref.delete();
-    return res.json({ ok: true, message: 'Password changed successfully. You can now login.' });
+
+    return res.json({
+      ok: true,
+      message: 'Password changed successfully. You can now login.'
+    });
+
   } catch (error) {
     console.error('Password reset error:', error);
-    return res.status(500).json({ ok: false, message: 'Unable to change password right now.' });
+    return res.status(500).json({
+      ok: false,
+      message: 'Unable to change password right now.'
+    });
   }
 });
 
+// ==========================================
+// ERROR HANDLER
+// ==========================================
+
 app.use((err, req, res, next) => {
   console.error('Unhandled server error:', err);
-  res.status(500).json({ ok: false, message: 'Internal server error.' });
+  res.status(500).json({
+    ok: false,
+    message: 'Internal server error.'
+  });
 });
 
 app.listen(PORT, () => {
